@@ -103,3 +103,66 @@ alter table plumbers enable row level security;
 alter table customers enable row level security;
 alter table leads enable row level security;
 alter table jobs enable row level security;
+-- Invoices table
+create table invoices (
+  id uuid default uuid_generate_v4() primary key,
+  company_id uuid references companies(id) on delete cascade not null,
+  customer_id uuid references customers(id),
+  job_id uuid references jobs(id),
+  
+  -- Invoice details
+  invoice_number text unique not null,
+  status text default 'pending', -- 'pending', 'paid', 'overdue', 'cancelled'
+  
+  -- Financials
+  amount decimal(10,2) not null,
+  tax decimal(10,2) default 0,
+  total decimal(10,2) not null,
+  
+  -- Dates
+  issue_date date not null,
+  due_date date,
+  paid_date date,
+  
+  -- Notes
+  notes text,
+  
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS
+alter table invoices enable row level security;
+
+-- Add jobs table
+create table jobs (
+  id uuid default uuid_generate_v4() primary key,
+  company_id uuid references companies(id) on delete cascade not null,
+  lead_id uuid references leads(id),
+  customer_id uuid references customers(id),
+  plumber_id uuid references plumbers(id),
+  
+  -- Job details
+  status text default 'scheduled', -- 'scheduled', 'in_progress', 'completed', 'cancelled'
+  type text not null,
+  description text,
+  
+  -- Scheduling
+  scheduled_date date,
+  scheduled_time time,
+  started_at timestamp with time zone,
+  completed_at timestamp with time zone,
+  
+  -- Pricing
+  estimated_price decimal(10,2),
+  final_price decimal(10,2),
+  
+  -- Notes
+  notes text,
+  
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS
+alter table jobs enable row level security;
