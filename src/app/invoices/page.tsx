@@ -3,39 +3,43 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Search, Bell, MoreHorizontal, Calendar, Clock, MapPin, User } from 'lucide-react';
+import { Search, Bell, MoreHorizontal, Calendar, DollarSign, User, FileText } from 'lucide-react';
 
-interface Job {
+interface Invoice {
   id: string;
-  customer: { name: string; address: string };
+  invoice_number: string;
+  customer: { name: string };
   service_type: string;
-  plumber: { name: string };
-  scheduled_date: string;
-  scheduled_time: string;
-  status: 'scheduled' | 'in_progress' | 'completed';
-  value: number;
+  date: string;
+  amount: number;
+  status: 'pending' | 'paid' | 'overdue';
 }
 
-const mockJobs: Job[] = [
-  { id: '1', customer: { name: 'Robert S.', address: '2841 W 11th St, Brooklyn, NY' }, service_type: 'Drain Cleaning', plumber: { name: 'Mike T.' }, scheduled_date: 'Feb 23', scheduled_time: '10:00 AM', status: 'in_progress', value: 350 },
-  { id: '2', customer: { name: 'Sarah M.', address: '4523 Queens Blvd, Queens, NY' }, service_type: 'Water Heater', plumber: { name: 'John D.' }, scheduled_date: 'Feb 23', scheduled_time: '2:00 PM', status: 'scheduled', value: 800 },
-  { id: '3', customer: { name: 'Mike T.', address: '891 5th Ave, Manhattan, NY' }, service_type: 'Leak Repair', plumber: { name: 'Mike T.' }, scheduled_date: 'Feb 23', scheduled_time: '4:30 PM', status: 'scheduled', value: 450 },
-  { id: '4', customer: { name: 'Jennifer L.', address: '1294 Boston Rd, Bronx, NY' }, service_type: 'Pipe Installation', plumber: { name: 'John D.' }, scheduled_date: 'Feb 24', scheduled_time: '9:00 AM', status: 'scheduled', value: 600 },
-  { id: '5', customer: { name: 'David B.', address: '772 Jefferson St, Brooklyn, NY' }, service_type: 'Water Heater', plumber: { name: 'Mike T.' }, scheduled_date: 'Feb 22', scheduled_time: '11:00 AM', status: 'completed', value: 750 },
+const mockInvoices: Invoice[] = [
+  { id: '1', invoice_number: 'INV-0089', customer: { name: 'Sarah M.' }, service_type: 'Water Heater', date: 'Feb 23, 2026', amount: 800, status: 'pending' },
+  { id: '2', invoice_number: 'INV-0088', customer: { name: 'Robert S.' }, service_type: 'Drain Cleaning', date: 'Feb 22, 2026', amount: 350, status: 'pending' },
+  { id: '3', invoice_number: 'INV-0087', customer: { name: 'Mike T.' }, service_type: 'Leak Repair', date: 'Feb 21, 2026', amount: 450, status: 'paid' },
+  { id: '4', invoice_number: 'INV-0086', customer: { name: 'Jennifer L.' }, service_type: 'Pipe Installation', date: 'Feb 20, 2026', amount: 600, status: 'overdue' },
+  { id: '5', invoice_number: 'INV-0085', customer: { name: 'David B.' }, service_type: 'Water Heater', date: 'Feb 19, 2026', amount: 750, status: 'paid' },
 ];
 
-const mockStats = { active: 8, scheduled: 12, in_progress: 6, completed: 156 };
+const mockStats = {
+  total: 156,
+  pending: { count: 12, amount: 8450 },
+  paid: { count: 144, amount: 45230 },
+  overdue: { count: 3, amount: 1200 }
+};
 
 const statusColors: Record<string, string> = {
-  scheduled: 'bg-blue-100 text-blue-700',
-  in_progress: 'bg-yellow-100 text-yellow-700',
-  completed: 'bg-green-100 text-green-700',
+  pending: 'bg-yellow-100 text-yellow-700',
+  paid: 'bg-green-100 text-green-700',
+  overdue: 'bg-red-100 text-red-700',
 };
 
 const statusLabels: Record<string, string> = {
-  scheduled: 'Scheduled',
-  in_progress: 'In Progress',
-  completed: 'Completed',
+  pending: 'Pending',
+  paid: 'Paid',
+  overdue: 'Overdue',
 };
 
 const navItems = [
@@ -47,23 +51,23 @@ const navItems = [
   { icon: '⚙️', label: 'Settings', href: '/settings' },
 ];
 
-export default function JobsPage() {
+export default function InvoicesPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
   const pathname = usePathname();
 
   const tabs = [
     { id: 'all', label: 'All' },
-    { id: 'scheduled', label: 'Scheduled' },
-    { id: 'in_progress', label: 'In Progress' },
-    { id: 'completed', label: 'Completed' },
+    { id: 'pending', label: 'Pending' },
+    { id: 'paid', label: 'Paid' },
+    { id: 'overdue', label: 'Overdue' },
   ];
 
-  const filteredJobs = mockJobs.filter(job => {
-    const matchesTab = activeTab === 'all' || job.status === activeTab;
-    const matchesSearch = job.customer.name.toLowerCase().includes(search.toLowerCase()) ||
-                         job.service_type.toLowerCase().includes(search.toLowerCase()) ||
-                         job.plumber.name.toLowerCase().includes(search.toLowerCase());
+  const filteredInvoices = mockInvoices.filter(inv => {
+    const matchesTab = activeTab === 'all' || inv.status === activeTab;
+    const matchesSearch = inv.customer.name.toLowerCase().includes(search.toLowerCase()) ||
+                         inv.invoice_number.toLowerCase().includes(search.toLowerCase()) ||
+                         inv.service_type.toLowerCase().includes(search.toLowerCase());
     return matchesTab && matchesSearch;
   });
 
@@ -114,8 +118,8 @@ export default function JobsPage() {
       <main className="flex-1">
         <header className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">Jobs</h1>
-            <p className="text-gray-500 text-sm">Monday, February 24, 2026</p>
+            <h1 className="text-2xl font-semibold text-gray-900">Invoices</h1>
+            <p className="text-gray-500 text-sm">Manage and track your invoices</p>
           </div>
           
           <div className="flex items-center gap-4">
@@ -123,7 +127,7 @@ export default function JobsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input 
                 type="text" 
-                placeholder="Search jobs..."
+                placeholder="Search invoices..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-10 pr-4 py-2 bg-gray-100 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -141,20 +145,23 @@ export default function JobsPage() {
           {/* Stats Bar */}
           <div className="grid grid-cols-4 gap-4 mb-6">
             <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-              <p className="text-gray-500 text-sm">Active Jobs</p>
-              <p className="text-2xl font-bold text-gray-900">{mockStats.active}</p>
+              <p className="text-gray-500 text-sm">Total Invoices</p>
+              <p className="text-2xl font-bold text-gray-900">{mockStats.total}</p>
             </div>
             <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-              <p className="text-gray-500 text-sm">Scheduled</p>
-              <p className="text-2xl font-bold text-blue-600">{mockStats.scheduled}</p>
+              <p className="text-gray-500 text-sm">Pending</p>
+              <p className="text-2xl font-bold text-yellow-600">${mockStats.pending.amount.toLocaleString()}</p>
+              <p className="text-xs text-gray-500">{mockStats.pending.count} invoices</p>
             </div>
             <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-              <p className="text-gray-500 text-sm">In Progress</p>
-              <p className="text-2xl font-bold text-yellow-600">{mockStats.in_progress}</p>
+              <p className="text-gray-500 text-sm">Paid</p>
+              <p className="text-2xl font-bold text-green-600">${mockStats.paid.amount.toLocaleString()}</p>
+              <p className="text-xs text-gray-500">{mockStats.paid.count} invoices</p>
             </div>
             <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
-              <p className="text-gray-500 text-sm">Completed</p>
-              <p className="text-2xl font-bold text-green-600">{mockStats.completed}</p>
+              <p className="text-gray-500 text-sm">Overdue</p>
+              <p className="text-2xl font-bold text-red-600">${mockStats.overdue.amount.toLocaleString()}</p>
+              <p className="text-xs text-gray-500">{mockStats.overdue.count} invoices</p>
             </div>
           </div>
 
@@ -175,21 +182,21 @@ export default function JobsPage() {
             ))}
           </div>
 
-          {/* Jobs List */}
+          {/* Invoices List */}
           <div className="space-y-4">
-            {filteredJobs.map((job) => (
-              <div key={job.id} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+            {filteredInvoices.map((inv) => (
+              <div key={inv.id} className="bg-white rounded-xl p-5 border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
                 <div className="flex items-center justify-between">
-                  {/* Customer Info */}
+                  {/* Invoice # */}
                   <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-semibold text-lg">
-                      {job.customer.name.split(' ').map(n => n[0]).join('')}
+                    <div className="h-12 w-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
+                      <FileText className="w-6 h-6" />
                     </div>
                     <div>
-                      <h3 className="font-semibold text-gray-900">{job.customer.name}</h3>
-                      <div className="flex items-center gap-1 text-sm text-gray-500">
-                        <MapPin className="w-3 h-3" />
-                        {job.customer.address}
+                      <h3 className="font-semibold text-gray-900">{inv.invoice_number}</h3>
+                      <div className="flex items-center gap-2 text-sm text-gray-500">
+                        <User className="w-3 h-3" />
+                        {inv.customer.name}
                       </div>
                     </div>
                   </div>
@@ -197,42 +204,29 @@ export default function JobsPage() {
                   {/* Service Type */}
                   <div className="text-center px-4">
                     <p className="text-sm text-gray-500">Service</p>
-                    <p className="font-medium text-gray-900">{job.service_type}</p>
+                    <p className="font-medium text-gray-900">{inv.service_type}</p>
                   </div>
 
-                  {/* Plumber */}
+                  {/* Date */}
                   <div className="text-center px-4">
-                    <p className="text-sm text-gray-500">Plumber</p>
-                    <div className="flex items-center gap-1 justify-center">
-                      <User className="w-3 h-3 text-gray-400" />
-                      <p className="font-medium text-gray-900">{job.plumber.name}</p>
-                    </div>
-                  </div>
-
-                  {/* Date/Time */}
-                  <div className="text-center px-4">
-                    <p className="text-sm text-gray-500">Scheduled</p>
+                    <p className="text-sm text-gray-500">Date</p>
                     <div className="flex items-center gap-1 justify-center">
                       <Calendar className="w-3 h-3 text-gray-400" />
-                      <p className="font-medium text-gray-900">{job.scheduled_date}</p>
-                    </div>
-                    <div className="flex items-center gap-1 justify-center">
-                      <Clock className="w-3 h-3 text-gray-400" />
-                      <p className="text-sm text-gray-500">{job.scheduled_time}</p>
+                      <p className="font-medium text-gray-900">{inv.date}</p>
                     </div>
                   </div>
 
                   {/* Status */}
                   <div className="px-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[job.status]}`}>
-                      {statusLabels[job.status]}
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[inv.status]}`}>
+                      {statusLabels[inv.status]}
                     </span>
                   </div>
 
-                  {/* Value */}
+                  {/* Amount */}
                   <div className="text-center px-4">
-                    <p className="text-sm text-gray-500">Value</p>
-                    <p className="font-semibold text-gray-900">${job.value}</p>
+                    <p className="text-sm text-gray-500">Amount</p>
+                    <p className="text-xl font-bold text-gray-900">${inv.amount}</p>
                   </div>
 
                   {/* Actions */}
@@ -244,9 +238,9 @@ export default function JobsPage() {
             ))}
           </div>
 
-          {filteredJobs.length === 0 && (
+          {filteredInvoices.length === 0 && (
             <div className="text-center py-12">
-              <p className="text-gray-500">No jobs found</p>
+              <p className="text-gray-500">No invoices found</p>
             </div>
           )}
         </div>

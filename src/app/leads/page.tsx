@@ -44,7 +44,7 @@ const navItems = [
   { icon: '🎯', label: 'Leads', href: '/leads' },
   { icon: '💼', label: 'Jobs', href: '/jobs' },
   { icon: '👥', label: 'Customers', href: '/customers' },
-  { icon: '👤', label: 'Team', href: '/team' },
+  { icon: '📄', label: 'Invoices', href: '/invoices' },
   { icon: '⚙️', label: 'Settings', href: '/settings' },
 ];
 
