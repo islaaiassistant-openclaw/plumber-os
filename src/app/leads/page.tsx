@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Search, Plus, Bell, ChevronDown, MoreHorizontal, MapPin, Phone, Calendar, Filter, ArrowUpDown } from 'lucide-react';
+import { useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Search, Bell, MoreHorizontal, MapPin, Phone, Calendar, Filter, ArrowUpDown } from 'lucide-react';
 
-// Types
 interface Lead {
   id: string;
   customer: { name: string; address: string; phone: string };
@@ -17,14 +18,6 @@ interface Lead {
   source: string;
 }
 
-interface Stats {
-  total: number;
-  new: number;
-  working: number;
-  converted: number;
-}
-
-// Mock data for demo (before DB is connected)
 const mockLeads: Lead[] = [
   { id: '1', customer: { name: 'Robert S.', address: 'Brooklyn, NY' }, service_type: 'Drain Cleaning', phone: '(555) 123-4567', location: 'Brooklyn, NY', status: 'new', value: 350, created_at: '2026-02-23', source: 'website' },
   { id: '2', customer: { name: 'Sarah M.', address: 'Queens, NY' }, service_type: 'Water Heater', phone: '(555) 234-5678', location: 'Queens, NY', status: 'working', plumber: { name: 'Mike T.' }, value: 800, created_at: '2026-02-22', source: 'phone' },
@@ -32,7 +25,7 @@ const mockLeads: Lead[] = [
   { id: '4', customer: { name: 'Jennifer L.', address: 'Bronx, NY' }, service_type: 'Pipe Installation', phone: '(555) 456-7890', location: 'Bronx, NY', status: 'new', value: 600, created_at: '2026-02-20', source: 'angi' },
 ];
 
-const mockStats: Stats = { total: 124, new: 24, working: 18, converted: 82 };
+const mockStats: Record<string, number> = { total: 124, new: 24, working: 18, converted: 82 };
 
 const statusColors: Record<string, string> = {
   new: 'bg-blue-100 text-blue-700',
@@ -46,17 +39,24 @@ const statusLabels: Record<string, string> = {
   converted: 'Converted',
 };
 
+const navItems = [
+  { icon: '📊', label: 'Dashboard', href: '/' },
+  { icon: '🎯', label: 'Leads', href: '/leads' },
+  { icon: '💼', label: 'Jobs', href: '/jobs' },
+  { icon: '👥', label: 'Customers', href: '/customers' },
+  { icon: '👤', label: 'Team', href: '/team' },
+  { icon: '⚙️', label: 'Settings', href: '/settings' },
+];
+
 export default function LeadsPage() {
-  const [leads, setLeads] = useState<Lead[]>(mockLeads);
-  const [stats, setStats] = useState<Stats>(mockStats);
+  const [leads] = useState<Lead[]>(mockLeads);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [sourceFilter, setSourceFilter] = useState('all');
   const [plumberFilter, setPlumberFilter] = useState('all');
   const [showAddModal, setShowAddModal] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const pathname = usePathname();
 
-  // Filter leads
   const filteredLeads = leads.filter(lead => {
     const matchesSearch = lead.customer.name.toLowerCase().includes(search.toLowerCase()) ||
                          lead.phone.includes(search) ||
@@ -81,26 +81,19 @@ export default function LeadsPage() {
         </div>
         
         <nav className="flex-1 px-4">
-          {[
-            { icon: '📊', label: 'Dashboard', href: '/' },
-            { icon: '🎯', label: 'Leads', href: '/leads', active: true },
-            { icon: '💼', label: 'Jobs', href: '/jobs' },
-            { icon: '👥', label: 'Customers', href: '/customers' },
-            { icon: '👤', label: 'Team', href: '/team' },
-            { icon: '⚙️', label: 'Settings', href: '/settings' },
-          ].map((item) => (
-            <a
+          {navItems.map((item) => (
+            <Link
               key={item.label}
               href={item.href}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
-                item.active 
+                pathname === item.href
                   ? 'bg-blue-600 text-white' 
                   : 'text-gray-400 hover:bg-gray-800 hover:text-white'
               }`}
             >
               <span>{item.icon}</span>
               <span className="font-medium">{item.label}</span>
-            </a>
+            </Link>
           ))}
         </nav>
         
@@ -149,19 +142,19 @@ export default function LeadsPage() {
           <div className="grid grid-cols-4 gap-4 mb-6">
             <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
               <p className="text-gray-500 text-sm">Total</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+              <p className="text-2xl font-bold text-gray-900">{mockStats.total}</p>
             </div>
             <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
               <p className="text-gray-500 text-sm">New</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.new}</p>
+              <p className="text-2xl font-bold text-blue-600">{mockStats.new}</p>
             </div>
             <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
               <p className="text-gray-500 text-sm">Working</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.working}</p>
+              <p className="text-2xl font-bold text-yellow-600">{mockStats.working}</p>
             </div>
             <div className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
               <p className="text-gray-500 text-sm">Converted</p>
-              <p className="text-2xl font-bold text-green-600">{stats.converted}</p>
+              <p className="text-2xl font-bold text-green-600">{mockStats.converted}</p>
             </div>
           </div>
 
@@ -212,7 +205,7 @@ export default function LeadsPage() {
                 onClick={() => setShowAddModal(true)}
                 className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-600 transition"
               >
-                <Plus className="w-4 h-4" /> Add Lead
+                + Add Lead
               </button>
             </div>
           </div>
@@ -274,7 +267,7 @@ export default function LeadsPage() {
 
             {/* Pagination */}
             <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-              <p className="text-sm text-gray-500">Showing 1-{filteredLeads.length} of {stats.total} leads</p>
+              <p className="text-sm text-gray-500">Showing 1-{filteredLeads.length} of {mockStats.total} leads</p>
               <div className="flex items-center gap-2">
                 <button className="px-3 py-1 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-50" disabled>
                   ← Previous

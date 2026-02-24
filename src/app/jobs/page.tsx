@@ -1,9 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, Plus, Bell, MoreHorizontal, Calendar, Clock, MapPin, User } from 'lucide-react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { Search, Bell, MoreHorizontal, Calendar, Clock, MapPin, User } from 'lucide-react';
 
-// Types
 interface Job {
   id: string;
   customer: { name: string; address: string };
@@ -37,9 +38,19 @@ const statusLabels: Record<string, string> = {
   completed: 'Completed',
 };
 
+const navItems = [
+  { icon: '📊', label: 'Dashboard', href: '/' },
+  { icon: '🎯', label: 'Leads', href: '/leads' },
+  { icon: '💼', label: 'Jobs', href: '/jobs' },
+  { icon: '👥', label: 'Customers', href: '/customers' },
+  { icon: '👤', label: 'Team', href: '/team' },
+  { icon: '⚙️', label: 'Settings', href: '/settings' },
+];
+
 export default function JobsPage() {
   const [activeTab, setActiveTab] = useState('all');
   const [search, setSearch] = useState('');
+  const pathname = usePathname();
 
   const tabs = [
     { id: 'all', label: 'All' },
@@ -70,26 +81,19 @@ export default function JobsPage() {
         </div>
         
         <nav className="flex-1 px-4">
-          {[
-            { icon: '📊', label: 'Dashboard', href: '/' },
-            { icon: '🎯', label: 'Leads', href: '/leads' },
-            { icon: '💼', label: 'Jobs', href: '/jobs', active: true },
-            { icon: '👥', label: 'Customers', href: '/customers' },
-            { icon: '👤', label: 'Team', href: '/team' },
-            { icon: '⚙️', label: 'Settings', href: '/settings' },
-          ].map((item) => (
-            <a
+          {navItems.map((item) => (
+            <Link
               key={item.label}
               href={item.href}
               className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg mb-1 transition-colors ${
-                item.active 
+                pathname === item.href
                   ? 'bg-blue-600 text-white' 
                   : 'text-gray-400 hover:bg-gray-800 hover:text-white'
               }`}
             >
               <span>{item.icon}</span>
               <span className="font-medium">{item.label}</span>
-            </a>
+            </Link>
           ))}
         </nav>
         
