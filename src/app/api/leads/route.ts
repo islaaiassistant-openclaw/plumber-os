@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const plumber_id = searchParams.get('plumber_id');
   const source = searchParams.get('source');
   const page = parseInt(searchParams.get('page') || '1');
-  const limit = parseInt(searchParams.get('limit') || '10');
+  const limit = parseInt(searchParams.get('limit') || '100');
   const search = searchParams.get('search');
 
   const offset = (page - 1) * limit;
@@ -45,8 +45,8 @@ export async function GET(request: Request) {
       countQuery = sql`${countQuery} AND l.source = ${source}`;
     }
     if (search) {
-      query = sql`${query} AND (c.name ILIKE ${'%' + search + '%'} OR c.phone ILIKE ${'%' + search + '%'} OR l.location ILIKE ${'%' + search + '%'})`;
-      countQuery = sql`${countQuery} AND (c.name ILIKE ${'%' + search + '%'} OR c.phone ILIKE ${'%' + search + '%'} OR l.location ILIKE ${'%' + search + '%'})`;
+      query = sql`${query} AND (c.name ILIKE ${'%' + search + '%'} OR c.phone ILIKE ${'%' + search + '%'} OR l.location ILIKE ${'%' + search + '%'} OR l.issue ILIKE ${'%' + search + '%'})`;
+      countQuery = sql`${countQuery} AND (c.name ILIKE ${'%' + search + '%'} OR c.phone ILIKE ${'%' + search + '%'} OR l.location ILIKE ${'%' + search + '%'} OR l.issue ILIKE ${'%' + search + '%'})`;
     }
 
     // Get total count
@@ -153,35 +153,27 @@ export async function PUT(request: Request) {
   }
 
   try {
-    // Build dynamic update query
-    const setClauses = [];
-    const values = [];
-    let paramIndex = 1;
-
-    for (const [key, value] of Object.entries(updates)) {
-      if (value !== undefined) {
-        setClauses.push(`${key} = $${paramIndex}`);
-        values.push(value);
-        paramIndex++;
-      }
-    }
-
-    if (setClauses.length === 0) {
-      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
-    }
-
-    values.push(id);
+    // Simple update - just update the fields that are provided
+    let query;
     
-    const query = sql`
-      UPDATE leads 
-      SET ${sql(setClauses.join(', '))}, updated_at = NOW()
-      WHERE id = ${id}
-      RETURNING *
-    `;
+    if (updates.status !== undefined) {
+      query = sql`UPDATE leads SET status = ${updates.status}, updated_at = NOW() WHERE id = ${id} RETURNING *`;
+    } else if (updates.priority !== undefined) {
+      query = sql`UPDATE leads SET priority = ${updates.priority}, updated_at = NOW() WHERE id = ${id} RETURNING *`;
+    } else if (updates.location !== undefined) {
+      query = sql`UPDATE leads SET location = ${updates.location}, updated_at = NOW() WHERE id = ${id} RETURNING *`;
+    } else if (updates.issue !== undefined) {
+      query = sql`UPDATE leads SET issue = ${updates.issue}, updated_at = NOW() WHERE id = ${id} RETURNING *`;
+    } else if (updates.description !== undefined) {
+      query = sql`UPDATE leads SET description = ${updates.description}, updated_at = NOW() WHERE id = ${id} RETURNING *`;
+    } else if (updates.source !== undefined) {
+      query = sql`UPDATE leads SET source = ${updates.source}, updated_at = NOW() WHERE id = ${id} RETURNING *`;
+    } else {
+      // Default: just update timestamp
+      query = sql`UPDATE leads SET updated_at = NOW() WHERE id = ${id} RETURNING *`;
+    }
 
-    // This is a workaround - let's do it differently
-    const result = await sql`UPDATE leads SET status = ${updates.status}, updated_at = NOW() WHERE id = ${id} RETURNING *`;
-
+    const result = await query;
     return NextResponse.json({ lead: result[0] });
   } catch (error: any) {
     console.error('Error updating lead:', error);
