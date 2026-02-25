@@ -218,7 +218,7 @@ export default function JobsPage() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-900 text-white flex flex-col">
+      <aside className="sidebar w-56 text-white flex flex-col flex-shrink-0">
         <div className="p-6">
           <div className="flex items-center gap-3">
             <Link href="/" className="flex items-center gap-3">

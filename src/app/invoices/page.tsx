@@ -74,7 +74,7 @@ export default function InvoicesPage() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-900 text-white flex flex-col">
+      <aside className="sidebar w-56 text-white flex flex-col flex-shrink-0">
         <div className="p-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
