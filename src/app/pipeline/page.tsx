@@ -20,6 +20,8 @@ interface Card {
   bucketId: string;
   leadId?: string;
   status?: string;
+  priority?: number;
+  description?: string;
 }
 
 // Map bucket position to lead status
@@ -123,7 +125,7 @@ export default function PipelinePage() {
   const [showBucketModal, setShowBucketModal] = useState(false);
   const [editBucket, setEditBucket] = useState<Bucket | null>(null);
   const [newBucket, setNewBucket] = useState({ title: '', color: '#3b82f6' });
-  const [newCard, setNewCard] = useState({ customerName: '', customerPhone: '', location: '', service: '', description: '', price: 0, source: 'website', bucketId: '' });
+  const [newCard, setNewCard] = useState({ customerName: '', customerPhone: '', location: '', service: '', description: '', price: 0, priority: 3, source: 'website', bucketId: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -156,6 +158,8 @@ export default function PipelinePage() {
           source: lead.source,
           plumber: lead.plumber_name,
           bucketId: getBucketIdFromStatus(lead.status, buckets),
+          priority: lead.priority,
+          description: lead.description,
         }));
         setCards(mappedCards);
       }
@@ -293,7 +297,8 @@ export default function PipelinePage() {
           location: newCard.location,
           customer_name: newCard.customerName,
           customer_phone: newCard.customerPhone,
-          description: newCard.description
+          description: newCard.description,
+          priority: newCard.priority
         })
       });
       const data = await res.json();
@@ -316,7 +321,7 @@ export default function PipelinePage() {
       }
       
       setShowAddModal(false);
-      setNewCard({ customerName: '', customerPhone: '', location: '', service: '', description: '', price: 0, source: 'website', bucketId: '' });
+      setNewCard({ customerName: '', customerPhone: '', location: '', service: '', description: '', price: 0, priority: 3, source: 'website', bucketId: '' });
     } catch (err) {
       console.error('Failed to add lead:', err);
     } finally {
@@ -389,7 +394,14 @@ export default function PipelinePage() {
                 <div className="flex-1 overflow-y-auto p-2 space-y-2">
                   {getCardsForBucket(bucket.id).map(card => (
                     <div key={card.id} draggable onDragStart={() => handleDragStart(card, bucket.id)} className={`bg-white rounded-lg p-3 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md ${draggedCard?.card.id === card.id ? 'opacity-50' : ''}`}>
-                      <div className="flex items-center justify-between mb-1"><span className={`text-xs font-medium px-1.5 py-0.5 rounded ${card.type === 'lead' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{card.type === 'lead' ? 'Lead' : 'Job'}</span><button onClick={() => handleDeleteCard(card.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-3 h-3" /></button></div>
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="flex items-center gap-1">
+                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${card.type === 'lead' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{card.type === 'lead' ? 'Lead' : 'Job'}</span>
+                          {card.priority && card.priority <= 2 && <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-700">🔥 Hot</span>}
+                          {card.priority && card.priority === 1 && <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-red-600 text-white">URGENT</span>}
+                        </div>
+                        <button onClick={() => handleDeleteCard(card.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                      </div>
                       <h4 className="font-semibold text-gray-900 text-sm mb-1">{card.customerName}</h4>
                       <p className="text-xs text-gray-600 mb-2">{card.service}</p>
                       <div className="space-y-1 text-xs text-gray-500">
@@ -422,8 +434,9 @@ export default function PipelinePage() {
               <div><label className="block text-xs font-medium text-gray-700 mb-1">Service Type *</label><input type="text" value={newCard.service} onChange={e => setNewCard({...newCard, service: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900" /></div>
               <div><label className="block text-xs font-medium text-gray-700 mb-1">Location *</label><input type="text" value={newCard.location} onChange={e => setNewCard({...newCard, location: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900" /></div>
               <div><label className="block text-xs font-medium text-gray-700 mb-1">Description</label><textarea value={newCard.description || ''} onChange={e => setNewCard({...newCard, description: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900" rows={2} placeholder="Additional details..." /></div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 <div><label className="block text-xs font-medium text-gray-700 mb-1">Price ($)</label><input type="number" value={newCard.price} onChange={e => setNewCard({...newCard, price: parseInt(e.target.value) || 0})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900" /></div>
+                <div><label className="block text-xs font-medium text-gray-700 mb-1">Priority</label><select value={newCard.priority} onChange={e => setNewCard({...newCard, priority: parseInt(e.target.value)})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900"><option value={1}>🔥 Urgent</option><option value={2}>🔥 Hot</option><option value={3}>Normal</option><option value={4}>Low</option><option value={5}>Very Low</option></select></div>
                 <div><label className="block text-xs font-medium text-gray-700 mb-1">Bucket</label><select value={newCard.bucketId} onChange={e => setNewCard({...newCard, bucketId: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900">{buckets.map(b => <option key={b.id} value={b.id}>{b.title}</option>)}</select></div>
                 <div><label className="block text-xs font-medium text-gray-700 mb-1">Source</label><select value={newCard.source} onChange={e => setNewCard({...newCard, source: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900"><option value="website">Website</option><option value="phone">Phone</option><option value="thumbtack">Thumbtack</option><option value="angi">Angi</option><option value="google">Google</option><option value="referral">Referral</option></select></div>
               </div>
