@@ -153,28 +153,35 @@ export async function PUT(request: Request) {
   }
 
   try {
-    // Simple update - just update the fields that are provided
-    let query;
-    
+    // Handle status update (most common)
     if (updates.status !== undefined) {
-      query = sql`UPDATE leads SET status = ${updates.status}, updated_at = NOW() WHERE id = ${id} RETURNING *`;
-    } else if (updates.priority !== undefined) {
-      query = sql`UPDATE leads SET priority = ${updates.priority}, updated_at = NOW() WHERE id = ${id} RETURNING *`;
-    } else if (updates.location !== undefined) {
-      query = sql`UPDATE leads SET location = ${updates.location}, updated_at = NOW() WHERE id = ${id} RETURNING *`;
-    } else if (updates.issue !== undefined) {
-      query = sql`UPDATE leads SET issue = ${updates.issue}, updated_at = NOW() WHERE id = ${id} RETURNING *`;
-    } else if (updates.description !== undefined) {
-      query = sql`UPDATE leads SET description = ${updates.description}, updated_at = NOW() WHERE id = ${id} RETURNING *`;
-    } else if (updates.source !== undefined) {
-      query = sql`UPDATE leads SET source = ${updates.source}, updated_at = NOW() WHERE id = ${id} RETURNING *`;
-    } else {
-      // Default: just update timestamp
-      query = sql`UPDATE leads SET updated_at = NOW() WHERE id = ${id} RETURNING *`;
+      const result = await sql`
+        UPDATE leads SET status = ${updates.status}, updated_at = NOW() 
+        WHERE id = ${id} RETURNING *
+      `;
+      return NextResponse.json({ lead: result[0] });
+    }
+    
+    // Handle location update
+    if (updates.location !== undefined) {
+      const result = await sql`
+        UPDATE leads SET location = ${updates.location}, updated_at = NOW() 
+        WHERE id = ${id} RETURNING *
+      `;
+      return NextResponse.json({ lead: result[0] });
+    }
+    
+    // Handle issue update
+    if (updates.issue !== undefined) {
+      const result = await sql`
+        UPDATE leads SET issue = ${updates.issue}, updated_at = NOW() 
+        WHERE id = ${id} RETURNING *
+      `;
+      return NextResponse.json({ lead: result[0] });
     }
 
-    const result = await query;
-    return NextResponse.json({ lead: result[0] });
+    // Default response if no recognized fields
+    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
   } catch (error: any) {
     console.error('Error updating lead:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

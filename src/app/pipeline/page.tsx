@@ -55,6 +55,8 @@ interface Bucket {
 const navItems = [
   { icon: '📊', label: 'Dashboard', href: '/' },
   { icon: '🎯', label: 'Pipeline', href: '/pipeline' },
+  { icon: '👷', label: 'Team', href: '/team' },
+  { icon: '📞', label: 'Calls', href: '/calls' },
   { icon: '👥', label: 'Customers', href: '/customers' },
   { icon: '📄', label: 'Invoices', href: '/invoices' },
   { icon: '⚙️', label: 'Settings', href: '/settings' },
@@ -153,7 +155,7 @@ export default function PipelinePage() {
           customerPhone: lead.customer_phone || '',
           location: lead.location || '',
           service: lead.issue,
-          price: lead.estimated_price || 0,
+          price: 0,
           date: lead.created_at ? new Date(lead.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
           source: lead.source,
           plumber: lead.plumber_name,
@@ -383,34 +385,106 @@ export default function PipelinePage() {
         </div>
 
         <div className="flex-1 overflow-x-auto p-4">
-          <div className="flex gap-3 h-full">
+          <div className="flex gap-4 h-full">
             {buckets.sort((a, b) => a.position - b.position).map(bucket => (
-              <div key={bucket.id} className="w-64 flex-shrink-0 flex flex-col bg-gray-200 rounded-lg" onDragOver={handleDragOver} onDrop={() => handleDrop(bucket.id)}>
-                <div className="p-3 flex items-center gap-2 border-b border-gray-300">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: bucket.color }}></div>
-                  <h3 className="font-semibold text-gray-700 text-sm">{bucket.title}</h3>
-                  <span className="ml-auto bg-white px-1.5 py-0.5 rounded-full text-xs font-medium text-gray-600">{getCardsForBucket(bucket.id).length}</span>
+              <div 
+                key={bucket.id} 
+                className="w-72 flex-shrink-0 flex flex-col bg-gradient-to-b from-gray-100 to-gray-200 rounded-xl overflow-hidden"
+                onDragOver={handleDragOver} 
+                onDrop={() => handleDrop(bucket.id)}
+              >
+                {/* Bucket Header */}
+                <div 
+                  className="p-4 flex items-center gap-3 border-b"
+                  style={{ backgroundColor: bucket.color + '15', borderColor: bucket.color + '30' }}
+                >
+                  <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: bucket.color }}></div>
+                  <h3 className="font-bold text-gray-800 text-sm">{bucket.title}</h3>
+                  <span 
+                    className="ml-auto px-2.5 py-1 rounded-full text-xs font-bold"
+                    style={{ backgroundColor: bucket.color + '20', color: bucket.color }}
+                  >
+                    {getCardsForBucket(bucket.id).length}
+                  </span>
                 </div>
-                <div className="flex-1 overflow-y-auto p-2 space-y-2">
+                {/* Cards Container */}
+                <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gradient-to-b from-gray-100 to-gray-50">
                   {getCardsForBucket(bucket.id).map(card => (
-                    <div key={card.id} draggable onDragStart={() => handleDragStart(card, bucket.id)} className={`bg-white rounded-lg p-3 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-md ${draggedCard?.card.id === card.id ? 'opacity-50' : ''}`}>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="flex items-center gap-1">
-                          <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${card.type === 'lead' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'}`}>{card.type === 'lead' ? 'Lead' : 'Job'}</span>
-                          {card.priority && card.priority <= 2 && <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-red-100 text-red-700">🔥 Hot</span>}
-                          {card.priority && card.priority === 1 && <span className="text-xs font-medium px-1.5 py-0.5 rounded bg-red-600 text-white">URGENT</span>}
+                    <div 
+                      key={card.id} 
+                      draggable 
+                      onDragStart={() => handleDragStart(card, bucket.id)} 
+                      className={`bg-white rounded-xl p-4 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border border-gray-100 group ${draggedCard?.card.id === card.id ? 'opacity-50' : ''}`}
+                    >
+                      {/* Header with badges */}
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${card.type === 'lead' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
+                            {card.type === 'lead' ? '🎯 Lead' : '🔧 Job'}
+                          </span>
+                          {card.priority && card.priority <= 2 && (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-100">
+                              🔥 Hot
+                            </span>
+                          )}
+                          {card.priority && card.priority === 1 && (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100 animate-pulse">
+                              ⚡ Urgent
+                            </span>
+                          )}
+                          {card.source && (
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-50 text-gray-500 border border-gray-100">
+                              {card.source === 'website' ? '🌐' : card.source === 'phone' ? '📞' : card.source === 'thumbtack' ? '🔧' : card.source === 'angi' ? '🏠' : card.source === 'google' ? '🔍' : '👥'} {card.source}
+                            </span>
+                          )}
                         </div>
-                        <button onClick={() => handleDeleteCard(card.id)} className="text-gray-400 hover:text-red-500"><Trash2 className="w-3 h-3" /></button>
+                        <button onClick={() => handleDeleteCard(card.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
-                      <h4 className="font-semibold text-gray-900 text-sm mb-1">{card.customerName}</h4>
-                      <p className="text-xs text-gray-600 mb-2">{card.service}</p>
-                      <div className="space-y-1 text-xs text-gray-500">
-                        <div className="flex items-center gap-1"><span>{card.customerPhone}</span></div>
-                        <div className="flex items-center gap-1"><span>{card.location}</span></div>
-                        <div className="flex items-center gap-1"><span>{card.date}</span></div>
-                        {card.plumber && <div className="flex items-center gap-1"><span>{card.plumber}</span></div>}
+                      
+                      {/* Customer & Service */}
+                      <h4 className="font-bold text-gray-900 text-sm mb-1">{card.customerName}</h4>
+                      <p className="text-sm font-medium text-blue-600 mb-3">{card.service}</p>
+                      
+                      {/* Details */}
+                      <div className="space-y-1.5 text-xs text-gray-500 bg-gray-50 rounded-lg p-2">
+                        {card.customerPhone && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-400">📞</span>
+                            <span className="font-medium">{card.customerPhone}</span>
+                          </div>
+                        )}
+                        {card.location && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-400">📍</span>
+                            <span>{card.location}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-400">📅</span>
+                          <span>{card.date}</span>
+                        </div>
+                        {card.plumber && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-400">👷</span>
+                            <span>{card.plumber}</span>
+                          </div>
+                        )}
                       </div>
-                      {card.price && <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between"><span className="text-xs text-gray-500">Est.</span><span className="text-sm font-semibold text-green-600">${card.price}</span></div>}
+                      
+                      {/* Description preview */}
+                      {card.description && (
+                        <p className="mt-2 text-xs text-gray-400 italic line-clamp-2">{card.description}</p>
+                      )}
+                      
+                      {/* Price */}
+                      {card.price && (
+                        <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
+                          <span className="text-xs text-gray-400">Estimate</span>
+                          <span className="text-sm font-bold text-emerald-600">${card.price}</span>
+                        </div>
+                      )}
                     </div>
                   ))}
                   {getCardsForBucket(bucket.id).length === 0 && <div className="text-center py-4 text-gray-400 text-xs">Drop here</div>}
