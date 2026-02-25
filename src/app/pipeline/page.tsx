@@ -117,12 +117,13 @@ export default function PipelinePage() {
   const [buckets, setBuckets] = useState<Bucket[]>(defaultBuckets);
   const [cards, setCards] = useState<Card[]>([]);
   const [search, setSearch] = useState('');
+  const [sourceFilter, setSourceFilter] = useState('all');
   const [draggedCard, setDraggedCard] = useState<{ card: Card; bucketId: string } | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBucketModal, setShowBucketModal] = useState(false);
   const [editBucket, setEditBucket] = useState<Bucket | null>(null);
   const [newBucket, setNewBucket] = useState({ title: '', color: '#3b82f6' });
-  const [newCard, setNewCard] = useState({ customerName: '', customerPhone: '', location: '', service: '', price: 0, source: 'website', bucketId: '' });
+  const [newCard, setNewCard] = useState({ customerName: '', customerPhone: '', location: '', service: '', description: '', price: 0, source: 'website', bucketId: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -211,11 +212,14 @@ export default function PipelinePage() {
     }
   };
 
-  const filteredCards = cards.filter(card => 
-    card.customerName.toLowerCase().includes(search.toLowerCase()) ||
-    card.service.toLowerCase().includes(search.toLowerCase()) ||
-    card.location.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredCards = cards.filter(card => {
+    const matchesSearch = 
+      card.customerName.toLowerCase().includes(search.toLowerCase()) ||
+      card.service.toLowerCase().includes(search.toLowerCase()) ||
+      card.location.toLowerCase().includes(search.toLowerCase());
+    const matchesSource = sourceFilter === 'all' || card.source === sourceFilter;
+    return matchesSearch && matchesSource;
+  });
 
   const getCardsForBucket = (bucketId: string) => filteredCards.filter(c => c.bucketId === bucketId);
   
@@ -288,7 +292,8 @@ export default function PipelinePage() {
           status: status,
           location: newCard.location,
           customer_name: newCard.customerName,
-          customer_phone: newCard.customerPhone
+          customer_phone: newCard.customerPhone,
+          description: newCard.description
         })
       });
       const data = await res.json();
@@ -311,7 +316,7 @@ export default function PipelinePage() {
       }
       
       setShowAddModal(false);
-      setNewCard({ customerName: '', customerPhone: '', location: '', service: '', price: 0, source: 'website', bucketId: '' });
+      setNewCard({ customerName: '', customerPhone: '', location: '', service: '', description: '', price: 0, source: 'website', bucketId: '' });
     } catch (err) {
       console.error('Failed to add lead:', err);
     } finally {
@@ -350,6 +355,15 @@ export default function PipelinePage() {
           <div><h1 className="text-xl font-semibold text-gray-900">Pipeline</h1><p className="text-gray-500 text-sm">Track your leads and jobs</p></div>
           <div className="flex items-center gap-3">
             <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 pr-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm w-48 text-gray-900" /></div>
+            <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900">
+              <option value="all">All Sources</option>
+              <option value="website">Website</option>
+              <option value="phone">Phone</option>
+              <option value="thumbtack">Thumbtack</option>
+              <option value="angi">Angi</option>
+              <option value="google">Google</option>
+              <option value="referral">Referral</option>
+            </select>
             <button className="p-1.5 hover:bg-gray-100 rounded-lg relative"><Bell className="w-4 h-4 text-gray-600" /><span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span></button>
           </div>
         </header>
@@ -407,6 +421,7 @@ export default function PipelinePage() {
               </div>
               <div><label className="block text-xs font-medium text-gray-700 mb-1">Service Type *</label><input type="text" value={newCard.service} onChange={e => setNewCard({...newCard, service: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900" /></div>
               <div><label className="block text-xs font-medium text-gray-700 mb-1">Location *</label><input type="text" value={newCard.location} onChange={e => setNewCard({...newCard, location: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900" /></div>
+              <div><label className="block text-xs font-medium text-gray-700 mb-1">Description</label><textarea value={newCard.description || ''} onChange={e => setNewCard({...newCard, description: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900" rows={2} placeholder="Additional details..." /></div>
               <div className="grid grid-cols-3 gap-3">
                 <div><label className="block text-xs font-medium text-gray-700 mb-1">Price ($)</label><input type="number" value={newCard.price} onChange={e => setNewCard({...newCard, price: parseInt(e.target.value) || 0})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900" /></div>
                 <div><label className="block text-xs font-medium text-gray-700 mb-1">Bucket</label><select value={newCard.bucketId} onChange={e => setNewCard({...newCard, bucketId: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900">{buckets.map(b => <option key={b.id} value={b.id}>{b.title}</option>)}</select></div>
