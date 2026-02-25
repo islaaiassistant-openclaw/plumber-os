@@ -31,8 +31,11 @@ const navItems = [
   { icon: '💼', label: 'Jobs', href: '/jobs' },
   { icon: '👥', label: 'Customers', href: '/customers' },
   { icon: '📄', label: 'Invoices', href: '/invoices' },
-  { icon: '⚙️', label: 'Settings', href: '/settings' },
   { icon: '📅', label: 'Calendar', href: '/calendar' },
+  { icon: '📍', label: 'Map', href: '/map' },
+  { icon: '👨‍🔧', label: 'Team', href: '/team' },
+  { icon: '📞', label: 'Calls', href: '/calls' },
+  { icon: '⚙️', label: 'Settings', href: '/settings' },
 ];
 
 export default function CustomersPage() {
