@@ -378,7 +378,7 @@ export default function JobsPage() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2 text-gray-600">
                           <Calendar className="w-4 h-4" />
-                          {formatDate(job.scheduled_date)}
+                          {formatDate(job.scheduled_date || '')}
                           {job.scheduled_time && (
                             <>
                               <Clock className="w-4 h-4 ml-2" />
@@ -388,7 +388,7 @@ export default function JobsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-gray-600">{job.plumber_name || 'Unassigned'}</td>
-                      <td className="px-6 py-4 text-gray-900 font-medium">{formatPrice(job.estimated_price)}</td>
+                      <td className="px-6 py-4 text-gray-900 font-medium">{formatPrice(job.estimated_price || 0)}</td>
                       <td className="px-6 py-4">
                         <select
                           value={job.status}

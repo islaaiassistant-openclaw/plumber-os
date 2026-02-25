@@ -313,7 +313,7 @@ export default function CustomersPage() {
                       </td>
                       <td className="px-6 py-4 text-gray-900 font-medium">{customer.total_jobs || 0}</td>
                       <td className="px-6 py-4 text-gray-900 font-medium">{formatPrice(customer.total_spent)}</td>
-                      <td className="px-6 py-4 text-gray-500 text-sm">{formatDate(customer.last_job_date)}</td>
+                      <td className="px-6 py-4 text-gray-500 text-sm">{formatDate(customer.last_job_date || '')}</td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
                           <button 
