@@ -40,7 +40,7 @@ interface JobStats {
 
 const navItems = [
   { icon: '📊', label: 'Dashboard', href: '/' },
-  { icon: '🎯', label: 'Pipeline', href: '/pipeline' },
+  { icon: '🎯', label: 'CRM', href: '/crm' },
   { icon: '💼', label: 'Jobs', href: '/jobs' },
   { icon: '👥', label: 'Customers', href: '/customers' },
   { icon: '📄', label: 'Invoices', href: '/invoices' },

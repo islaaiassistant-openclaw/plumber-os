@@ -86,7 +86,7 @@ const statusLabels: Record<string, string> = {
 
 const navItems = [
   { icon: '📊', label: 'Dashboard', href: '/' },
-  { icon: '🎯', label: 'Pipeline', href: '/pipeline' },
+  { icon: '🎯', label: 'CRM', href: '/crm' },
   { icon: '👷', label: 'Team', href: '/team' },
   { icon: '📞', label: 'Calls', href: '/calls' },
   { icon: '📍', label: 'Map', href: '/map' },
@@ -125,17 +125,108 @@ function MapBounds({ leads }: { leads: MapLead[] }) {
   return null;
 }
 
+// Geocode address to coordinates
+const geocodeAddress = async (address: string): Promise<{ lat: number; lng: number } | null> => {
+  try {
+    const res = await fetch(`/api/geocode?address=${encodeURIComponent(address)}`);
+    const data = await res.json();
+    if (data.lat && data.lng) {
+      return { lat: data.lat, lng: data.lng };
+    }
+  } catch (e) {
+    console.error('Geocode failed for:', address);
+  }
+  return null;
+};
+
+// Default NYC coordinates for common areas
+const defaultCoords: Record<string, { lat: number; lng: number }> = {
+  'brooklyn': { lat: 40.6782, lng: -73.9442 },
+  'manhattan': { lat: 40.7831, lng: -73.9712 },
+  'queens': { lat: 40.7282, lng: -73.7949 },
+  'bronx': { lat: 40.8448, lng: -73.8648 },
+  'staten island': { lat: 40.5795, lng: -74.1502 },
+  'new york': { lat: 40.7128, lng: -74.0060 },
+};
+
+const getDefaultCoords = (location: string): { lat: number; lng: number } | null => {
+  const loc = location.toLowerCase();
+  for (const key in defaultCoords) {
+    if (loc.includes(key)) {
+      return defaultCoords[key];
+    }
+  }
+  return null;
+};
+
 export default function MapPage() {
   const pathname = usePathname();
-  const [leads, setLeads] = useState<MapLead[]>(sampleLeads);
+  const [leads, setLeads] = useState<MapLead[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedLead, setSelectedLead] = useState<MapLead | null>(null);
   const [isClient, setIsClient] = useState(false);
 
+  // Fetch leads and geocode them
+  useEffect(() => {
+    const fetchLeads = async () => {
+      try {
+        const res = await fetch('/api/leads');
+        const data = await res.json();
+        
+        if (data.leads) {
+          // Geocode each lead that doesn't have coordinates
+          const geocodedLeads = await Promise.all(
+            data.leads.map(async (lead: any) => {
+              let lat = 40.7128; // Default to NYC
+              let lng = -74.0060;
+              
+              // Try geocoding first
+              if (lead.location) {
+                const coords = await geocodeAddress(lead.location);
+                if (coords) {
+                  lat = coords.lat;
+                  lng = coords.lng;
+                } else {
+                  // Fall back to defaults
+                  const defaultCoords = getDefaultCoords(lead.location);
+                  if (defaultCoords) {
+                    lat = defaultCoords.lat;
+                    lng = defaultCoords.lng;
+                  }
+                }
+              }
+              
+              return {
+                id: lead.id,
+                customerName: lead.customer_name || 'Unknown',
+                customerPhone: lead.customer_phone || '(555) 000-0000',
+                location: lead.location || 'Unknown',
+                service: lead.issue || 'Service',
+                status: lead.status,
+                source: lead.source,
+                date: new Date(lead.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+                lat,
+                lng,
+              };
+            })
+          );
+          setLeads(geocodedLeads);
+        }
+      } catch (err) {
+        console.error('Failed to fetch leads:', err);
+        setLeads(sampleLeads);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchLeads();
+  }, []);
+
   useEffect(() => {
     setIsClient(true);
-    // Import leaflet CSS on client side
     import('leaflet/dist/leaflet.css');
     
     // Fix for default marker icons

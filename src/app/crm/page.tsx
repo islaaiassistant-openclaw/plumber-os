@@ -54,7 +54,7 @@ interface Bucket {
 
 const navItems = [
   { icon: '📊', label: 'Dashboard', href: '/' },
-  { icon: '🎯', label: 'Pipeline', href: '/pipeline' },
+  { icon: '🎯', label: 'CRM', href: '/crm' },
   { icon: '👷', label: 'Team', href: '/team' },
   { icon: '📞', label: 'Calls', href: '/calls' },
   { icon: '📍', label: 'Map', href: '/map' },
