@@ -287,7 +287,8 @@ export default function PipelinePage() {
           source: newCard.source,
           status: status,
           location: newCard.location,
-          estimated_price: newCard.price
+          customer_name: newCard.customerName,
+          customer_phone: newCard.customerPhone
         })
       });
       const data = await res.json();

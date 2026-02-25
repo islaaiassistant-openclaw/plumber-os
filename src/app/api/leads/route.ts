@@ -90,11 +90,41 @@ export async function POST(request: Request) {
       }
     }
     
+    // If customer_name or customer_phone provided, get or create customer
+    let customerId = body.customer_id;
+    if (!customerId && (body.customer_name || body.customer_phone)) {
+      // Check if customer with same phone exists
+      if (body.customer_phone) {
+        const existingCustomer = await sql`
+          SELECT id FROM customers WHERE phone = ${body.customer_phone} LIMIT 1
+        `;
+        if (existingCustomer.length > 0) {
+          customerId = existingCustomer[0].id;
+        }
+      }
+      
+      // Create new customer if not found
+      if (!customerId) {
+        const newCustomer = await sql`
+          INSERT INTO customers (company_id, name, phone, email, address)
+          VALUES (
+            ${companyId},
+            ${body.customer_name || 'Unknown'},
+            ${body.customer_phone || ''},
+            ${body.customer_email || null},
+            ${body.customer_address || null}
+          )
+          RETURNING id
+        `;
+        customerId = newCustomer[0].id;
+      }
+    }
+    
     const result = await sql`
       INSERT INTO leads (company_id, customer_id, plumber_id, source, status, priority, issue, description, location)
       VALUES (
         ${companyId},
-        ${body.customer_id || null},
+        ${customerId || null},
         ${body.plumber_id || null},
         ${body.source || 'website'},
         ${body.status || 'new'},
