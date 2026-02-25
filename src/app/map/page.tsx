@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Search, Bell, Layers, Filter, Phone, MapPin, Calendar, User, X, Navigation } from 'lucide-react';
 import dynamic from 'next/dynamic';
+import L from 'leaflet';
 
 // Dynamic imports for Leaflet (no SSR)
 const MapContainer = dynamic(
@@ -19,6 +20,14 @@ const Marker = dynamic(
   () => import('react-leaflet').then((mod) => mod.Marker),
   { ssr: false }
 );
+const Popup = dynamic(
+  () => import('react-leaflet').then((mod) => mod.Popup),
+  { ssr: false }
+);
+const useMap = dynamic(
+  () => import('react-leaflet').then((mod) => mod.useMap),
+  { ssr: false }
+) as any;
 const Popup = dynamic(
   () => import('react-leaflet').then((mod) => mod.Popup),
   { ssr: false }
@@ -109,14 +118,12 @@ const sampleLeads: MapLead[] = [
   { id: '10', customerName: 'Maria G.', customerPhone: '(555) 333-4444', location: 'Staten Island, NY', service: 'Gas Line', status: 'booked', source: 'angi', date: 'Feb 24', lat: 40.5795, lng: -74.1502 },
 ];
 
-// Component to center map on markers
+// Component to center map on markers - must be inside MapContainer
 function MapBounds({ leads }: { leads: MapLead[] }) {
-  const Map = require('react-leaflet').useMap;
   const map = useMap();
   
   useEffect(() => {
     if (leads.length > 0) {
-      const L = require('leaflet');
       const bounds = L.latLngBounds(leads.map((l: MapLead) => [l.lat!, l.lng!]));
       map.fitBounds(bounds, { padding: [50, 50] });
     }
