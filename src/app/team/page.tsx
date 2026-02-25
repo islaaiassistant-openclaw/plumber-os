@@ -27,7 +27,9 @@ interface TeamStats {
 const navItems = [
   { icon: '📊', label: 'Dashboard', href: '/' },
   { icon: '🎯', label: 'Pipeline', href: '/pipeline' },
+  { icon: '👷', label: 'Team', href: '/team' },
   { icon: '📞', label: 'Calls', href: '/calls' },
+  { icon: '📍', label: 'Map', href: '/map' },
   { icon: '👥', label: 'Customers', href: '/customers' },
   { icon: '📄', label: 'Invoices', href: '/invoices' },
   { icon: '⚙️', label: 'Settings', href: '/settings' },

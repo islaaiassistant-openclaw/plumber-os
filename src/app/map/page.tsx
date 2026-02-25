@@ -1,0 +1,349 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { Search, Bell, Layers, Filter, Phone, MapPin, Calendar, User, X, Navigation } from 'lucide-react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for default marker icons in Leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+});
+
+interface MapLead {
+  id: string;
+  customerName: string;
+  customerPhone: string;
+  location: string;
+  service: string;
+  status: string;
+  source: string;
+  date: string;
+  // Geo coordinates (we'll generate these from location)
+  lat?: number;
+  lng?: number;
+}
+
+// Custom marker icons by status
+const createIcon = (color: string) => L.divIcon({
+  className: 'custom-marker',
+  html: `<div style="
+    background-color: ${color};
+    width: 32px;
+    height: 32px;
+    border-radius: 50% 50% 50% 0;
+    transform: rotate(-45deg);
+    border: 3px solid white;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  ">
+    <span style="transform: rotate(45deg); color: white; font-size: 14px;">📍</span>
+  </div>`,
+  iconSize: [32, 32],
+  iconAnchor: [16, 32],
+  popupAnchor: [0, -32],
+});
+
+const statusColors: Record<string, string> = {
+  new: '#3b82f6',       // blue
+  qualified: '#8b5cf6', // purple
+  quoted: '#eab308',    // yellow
+  booked: '#f97316',    // orange
+  in_progress: '#f59e0b', // amber
+  completed: '#22c55e', // green
+  lost: '#6b7280',      // gray
+};
+
+const statusLabels: Record<string, string> = {
+  new: 'New Lead',
+  qualified: 'Qualified',
+  quoted: 'Quoted',
+  booked: 'Booked',
+  in_progress: 'In Progress',
+  completed: 'Completed',
+  lost: 'Lost',
+};
+
+const navItems = [
+  { icon: '📊', label: 'Dashboard', href: '/' },
+  { icon: '🎯', label: 'Pipeline', href: '/pipeline' },
+  { icon: '👷', label: 'Team', href: '/team' },
+  { icon: '📞', label: 'Calls', href: '/calls' },
+  { icon: '📍', label: 'Map', href: '/map' },
+  { icon: '👥', label: 'Customers', href: '/customers' },
+  { icon: '📄', label: 'Invoices', href: '/invoices' },
+  { icon: '⚙️', label: 'Settings', href: '/settings' },
+];
+
+// Sample data with NYC coordinates (in real app, would geocode addresses)
+const sampleLeads: MapLead[] = [
+  { id: '1', customerName: 'Robert S.', customerPhone: '(555) 123-4567', location: 'Brooklyn, NY', service: 'Drain Cleaning', status: 'new', source: 'website', date: 'Feb 23', lat: 40.6782, lng: -73.9442 },
+  { id: '2', customerName: 'Jennifer L.', customerPhone: '(555) 456-7890', location: 'Bronx, NY', service: 'Pipe Installation', status: 'qualified', source: 'angi', date: 'Feb 20', lat: 40.8448, lng: -73.8648 },
+  { id: '3', customerName: 'Mike T.', customerPhone: '(555) 345-6789', location: 'Manhattan, NY', service: 'Leak Repair', status: 'quoted', source: 'thumbtack', date: 'Feb 21', lat: 40.7831, lng: -73.9712 },
+  { id: '4', customerName: 'Sarah M.', customerPhone: '(555) 234-5678', location: 'Queens, NY', service: 'Water Heater', status: 'booked', source: 'phone', date: 'Feb 22', lat: 40.7282, lng: -73.7949 },
+  { id: '5', customerName: 'David B.', customerPhone: '(555) 567-8901', location: 'Brooklyn, NY', service: 'Water Heater', status: 'in_progress', source: 'website', date: 'Feb 22', lat: 40.6501, lng: -73.9496 },
+  { id: '6', customerName: 'Lisa K.', customerPhone: '(555) 678-9012', location: 'Queens, NY', service: 'Toilet Repair', status: 'completed', source: 'referral', date: 'Feb 19', lat: 40.7614, lng: -73.8302 },
+  { id: '7', customerName: 'Tom H.', customerPhone: '(555) 789-0123', location: 'Manhattan, NY', service: 'Faucet Repair', status: 'completed', source: 'google', date: 'Feb 18', lat: 40.7580, lng: -73.9855 },
+  { id: '8', customerName: 'Emma W.', customerPhone: '(555) 111-2222', location: 'Brooklyn, NY', service: 'Sump Pump', status: 'new', source: 'website', date: 'Feb 24', lat: 40.6892, lng: -73.9857 },
+  { id: '9', customerName: 'James K.', customerPhone: '(555) 222-3333', location: 'Bronx, NY', service: 'Boiler Repair', status: 'quoted', source: 'phone', date: 'Feb 23', lat: 40.9176, lng: -73.8549 },
+  { id: '10', customerName: 'Maria G.', customerPhone: '(555) 333-4444', location: 'Staten Island, NY', service: 'Gas Line', status: 'booked', source: 'angi', date: 'Feb 24', lat: 40.5795, lng: -74.1502 },
+];
+
+// Component to center map on markers
+function MapBounds({ leads }: { leads: MapLead[] }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (leads.length > 0) {
+      const bounds = L.latLngBounds(leads.map(l => [l.lat!, l.lng!]));
+      map.fitBounds(bounds, { padding: [50, 50] });
+    }
+  }, [leads, map]);
+  
+  return null;
+}
+
+export default function MapPage() {
+  const pathname = usePathname();
+  const [leads, setLeads] = useState<MapLead[]>(sampleLeads);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedLead, setSelectedLead] = useState<MapLead | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+
+  // Filter leads
+  const filteredLeads = leads.filter(lead => {
+    const matchesSearch = lead.customerName.toLowerCase().includes(search.toLowerCase()) ||
+      lead.service.toLowerCase().includes(search.toLowerCase()) ||
+      lead.location.toLowerCase().includes(search.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || lead.status === statusFilter;
+    return matchesSearch && matchesStatus;
+  });
+
+  // Stats
+  const stats = {
+    total: leads.length,
+    new: leads.filter(l => l.status === 'new').length,
+    inProgress: leads.filter(l => l.status === 'in_progress' || l.status === 'booked').length,
+    completed: leads.filter(l => l.status === 'completed').length,
+  };
+
+  // NYC center
+  const center: [number, number] = [40.7128, -74.0060];
+
+  return (
+    <div className="flex h-screen bg-gray-50">
+      {/* Sidebar */}
+      <aside className="w-64 bg-gray-900 text-white flex flex-col flex-shrink-0">
+        <div className="p-6">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/30">
+              <span className="text-lg font-bold">P</span>
+            </div>
+            <span className="text-lg font-bold">PlumberOS</span>
+          </Link>
+        </div>
+        
+        <nav className="flex-1 px-4 space-y-1">
+          {navItems.map(item => (
+            <Link 
+              key={item.label} 
+              href={item.href}
+              className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                pathname === item.href 
+                  ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30' 
+                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+              }`}
+            >
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+            </Link>
+          ))}
+        </nav>
+
+        <div className="p-4 border-t border-gray-800">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
+              <span className="text-sm font-medium">AK</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium">Akshay K.</p>
+              <p className="text-xs text-gray-400">Admin</p>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main Content */}
+      <main className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <header className="bg-white border-b border-gray-200 px-8 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">📍 Service Map</h1>
+            <p className="text-gray-500 text-sm">Visualize all your jobs on a map</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input 
+                type="text" 
+                placeholder="Search locations..." 
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" 
+              />
+            </div>
+            <select 
+              value={statusFilter}
+              onChange={e => setStatusFilter(e.target.value)}
+              className="px-4 py-2 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Status</option>
+              <option value="new">New</option>
+              <option value="qualified">Qualified</option>
+              <option value="quoted">Quoted</option>
+              <option value="booked">Booked</option>
+              <option value="in_progress">In Progress</option>
+              <option value="completed">Completed</option>
+            </select>
+            <button className="p-2 hover:bg-gray-100 rounded-xl relative">
+              <Bell className="w-5 h-5 text-gray-600" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            </button>
+          </div>
+        </header>
+
+        {/* Stats Bar */}
+        <div className="bg-white border-b border-gray-200 px-8 py-3">
+          <div className="flex items-center gap-8">
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-blue-500"></div>
+              <span className="text-sm font-medium text-gray-700">{stats.new} New</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-amber-500"></div>
+              <span className="text-sm font-medium text-gray-700">{stats.inProgress} In Progress</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-3 h-3 rounded-full bg-green-500"></div>
+              <span className="text-sm font-medium text-gray-700">{stats.completed} Completed</span>
+            </div>
+            <div className="flex-1"></div>
+            <span className="text-sm text-gray-500">{filteredLeads.length} locations shown</span>
+          </div>
+        </div>
+
+        {/* Map Container */}
+        <div className="flex-1 relative">
+          <MapContainer 
+            center={center} 
+            zoom={11} 
+            style={{ height: '100%', width: '100%' }}
+            className="z-0"
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            />
+            <MapBounds leads={filteredLeads} />
+            
+            {filteredLeads.map(lead => (
+              <Marker 
+                key={lead.id} 
+                position={[lead.lat!, lead.lng!]}
+                icon={createIcon(statusColors[lead.status] || '#6b7280')}
+              >
+                <Popup>
+                  <div className="min-w-[200px] p-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span 
+                        className="px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                        style={{ backgroundColor: statusColors[lead.status] }}
+                      >
+                        {statusLabels[lead.status]}
+                      </span>
+                    </div>
+                    <h3 className="font-bold text-gray-900 mb-1">{lead.customerName}</h3>
+                    <p className="text-sm text-blue-600 font-medium mb-2">{lead.service}</p>
+                    <div className="space-y-1 text-xs text-gray-600">
+                      <div className="flex items-center gap-1">
+                        <span>📞</span>
+                        <span>{lead.customerPhone}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span>📍</span>
+                        <span>{lead.location}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span>📅</span>
+                        <span>{lead.date}</span>
+                      </div>
+                    </div>
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
+          </MapContainer>
+
+          {/* Legend */}
+          <div className="absolute bottom-6 left-6 z-[1000] bg-white rounded-2xl shadow-xl border border-gray-200 p-4">
+            <h4 className="text-sm font-semibold text-gray-900 mb-3">Legend</h4>
+            <div className="space-y-2">
+              {Object.entries(statusColors).map(([status, color]) => (
+                <div key={status} className="flex items-center gap-2">
+                  <div 
+                    className="w-4 h-4 rounded-full border-2 border-white shadow"
+                    style={{ backgroundColor: color }}
+                  ></div>
+                  <span className="text-xs text-gray-600">{statusLabels[status]}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Lead List Sidebar */}
+          <div className="absolute top-4 right-4 bottom-4 w-80 bg-white rounded-2xl shadow-xl border border-gray-200 z-[1000] flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="font-bold text-gray-900">Locations</h3>
+              <p className="text-sm text-gray-500">{filteredLeads.length} jobs</p>
+            </div>
+            <div className="flex-1 overflow-auto">
+              {filteredLeads.map(lead => (
+                <button
+                  key={lead.id}
+                  onClick={() => setSelectedLead(lead)}
+                  className={`w-full p-4 text-left border-b border-gray-100 hover:bg-gray-50 transition-colors ${
+                    selectedLead?.id === lead.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div 
+                      className="w-3 h-3 rounded-full mt-1.5 flex-shrink-0"
+                      style={{ backgroundColor: statusColors[lead.status] }}
+                    ></div>
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-medium text-gray-900 truncate">{lead.customerName}</h4>
+                      <p className="text-sm text-blue-600 truncate">{lead.service}</p>
+                      <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                        <span>📍</span>
+                        <span className="truncate">{lead.location}</span>
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
