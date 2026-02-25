@@ -47,7 +47,7 @@ export default function Dashboard() {
   return (
     <div className="flex min-h-screen bg-gray-50">
       {/* Sidebar */}
-      <aside className="w-64 bg-gray-900 text-white flex flex-col">
+      <aside className="w-64 bg-gradient-to-b from-slate-900 via-slate-800 to-slate-950 text-white flex flex-col">
         <div className="p-6">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
@@ -115,12 +115,12 @@ export default function Dashboard() {
         <div className="p-8">
           <div className="grid grid-cols-4 gap-6 mb-8">
             {stats.map((stat, index) => (
-              <div key={index} className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+              <div key={index} className="bg-white/80 backdrop-blur-md rounded-2xl p-6 border border-white/20 shadow-xl shadow-black/5">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-gray-500 text-sm">{stat.label}</span>
                   {stat.up === true && (
-                    <span className="flex items-center text-green-600 text-sm font-medium">
-                      <TrendingUp className="w-4 h-4 mr-1" />
+                    <span className="flex items-center text-emerald-500 text-sm font-medium bg-emerald-50 px-2 py-0.5 rounded-full">
+                      <TrendingUp className="w-3 h-3 mr-1" />
                       {stat.change}
                     </span>
                   )}
@@ -135,10 +135,10 @@ export default function Dashboard() {
 
           <div className="grid grid-cols-3 gap-6">
             {/* Recent Leads Table */}
-            <div className="col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="col-span-2 bg-white/80 backdrop-blur-md rounded-2xl border border-white/20 shadow-xl shadow-black/5 overflow-hidden">
               <div className="p-6 border-b border-gray-100 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">Recent Leads</h2>
-                <Link href="/leads" className="text-blue-500 text-sm font-medium hover:text-blue-600">View All</Link>
+                <Link href="/crm" className="text-blue-500 text-sm font-medium hover:text-blue-600">View All</Link>
               </div>
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-100">
@@ -159,7 +159,11 @@ export default function Dashboard() {
                       <td className="px-6 py-4 text-gray-500">{lead.phone}</td>
                       <td className="px-6 py-4 text-gray-500">{lead.location}</td>
                       <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[lead.status]}`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                          lead.status === 'new' ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' :
+                          lead.status === 'working' ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white' :
+                          'bg-gradient-to-r from-emerald-500 to-green-600 text-white'
+                        }`}>
                           {statusLabels[lead.status]}
                         </span>
                       </td>
@@ -171,13 +175,13 @@ export default function Dashboard() {
             </div>
 
             {/* Quick Actions */}
-            <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
+            <div className="bg-white/80 backdrop-blur-md rounded-2xl p-6 border border-white/20 shadow-xl shadow-black/5">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
               <div className="space-y-3">
-                <Link href="/leads" className="w-full flex items-center justify-center gap-2 bg-blue-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-600 transition">
+                <Link href="/crm" className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white py-3 px-4 rounded-xl font-medium hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg shadow-blue-500/25">
                   <Plus className="w-5 h-5" /> New Lead
                 </Link>
-                <Link href="/jobs" className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-50 transition">
+                <Link href="/jobs" className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 py-3 px-4 rounded-xl font-medium hover:bg-gray-50 transition">
                   <Plus className="w-5 h-5" /> Quick Add Job
                 </Link>
               </div>
