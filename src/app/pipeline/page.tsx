@@ -61,6 +61,7 @@ const navItems = [
   { icon: '👥', label: 'Customers', href: '/customers' },
   { icon: '📄', label: 'Invoices', href: '/invoices' },
   { icon: '⚙️', label: 'Settings', href: '/settings' },
+  { icon: '📅', label: 'Calendar', href: '/calendar' },
 ];
 
 const defaultBuckets: Bucket[] = [
@@ -126,11 +127,47 @@ export default function PipelinePage() {
   const [draggedCard, setDraggedCard] = useState<{ card: Card; bucketId: string } | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showBucketModal, setShowBucketModal] = useState(false);
+  const [showJobDetailsModal, setShowJobDetailsModal] = useState(false);
+  const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [editBucket, setEditBucket] = useState<Bucket | null>(null);
   const [newBucket, setNewBucket] = useState({ title: '', color: '#3b82f6' });
   const [newCard, setNewCard] = useState({ customerName: '', customerPhone: '', location: '', service: '', description: '', price: 0, priority: 3, source: 'website', bucketId: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  // Handle card click - show details modal
+  const handleCardClick = (card: Card) => {
+    setSelectedCard(card);
+    setShowJobDetailsModal(true);
+  };
+
+  // Generate invoice from job
+  const handleGenerateInvoice = async () => {
+    if (!selectedCard?.leadId) return;
+    
+    try {
+      const res = await fetch('/api/invoices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lead_id: selectedCard.leadId,
+          customer_name: selectedCard.customerName,
+          service_type: selectedCard.service,
+          amount: selectedCard.price || 0,
+          status: 'pending',
+          date: new Date().toISOString().split('T')[0],
+        })
+      });
+      const data = await res.json();
+      if (data.invoice) {
+        alert(`Invoice created: ${data.invoice.invoice_number}`);
+        setShowJobDetailsModal(false);
+      }
+    } catch (err) {
+      console.error('Failed to create invoice:', err);
+      alert('Failed to create invoice');
+    }
+  };
 
   // Fetch buckets and leads from API
   useEffect(() => {
@@ -351,19 +388,19 @@ export default function PipelinePage() {
   if (loading) return <div className="flex h-screen items-center justify-center bg-gray-100"><Loader2 className="w-8 h-8 animate-spin text-blue-500" /></div>;
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      <aside className="w-56 bg-gray-900 text-white flex flex-col flex-shrink-0">
-        <div className="p-4"><Link href="/" className="flex items-center gap-3"><div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center"><span className="text-sm font-bold">P</span></div><span className="text-lg font-semibold">PlumberOS</span></Link></div>
-        <nav className="flex-1 px-3">{navItems.map(item => <Link key={item.label} href={item.href} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg mb-1 text-sm ${pathname === item.href ? 'bg-blue-600 text-white' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}><span>{item.icon}</span><span className="font-medium">{item.label}</span></Link>)}</nav>
-        <div className="p-3 border-t border-gray-800"><div className="flex items-center gap-2"><div className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center text-xs">AK</div><div><p className="text-sm font-medium">Akshay K.</p><p className="text-xs text-gray-400">Admin</p></div></div></div>
+    <div className="flex h-screen bg-gradient-to-br from-slate-50 via-gray-100 to-slate-100">
+      <aside className="sidebar w-56 text-white flex flex-col flex-shrink-0">
+        <div className="p-5 relative z-10"><Link href="/" className="flex items-center gap-3"><div className="sidebar-logo w-10 h-10 rounded-xl flex items-center justify-center shadow-lg"><span className="text-lg font-bold">P</span></div><span className="text-xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">PlumberOS</span></Link></div>
+        <nav className="flex-1 px-3 relative z-10">{navItems.map(item => <Link key={item.label} href={item.href} className={`sidebar-item w-full flex items-center gap-3 px-4 py-3 mb-1 text-sm ${pathname === item.href ? 'active text-white' : 'text-gray-400 hover:text-white'}`}><span className="text-lg">{item.icon}</span><span className="font-medium">{item.label}</span></Link>)}</nav>
+        <div className="p-4 border-t border-gray-700/50 relative z-10"><div className="flex items-center gap-3 p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"><div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-sm font-bold shadow-lg">AK</div><div><p className="text-sm font-semibold text-white">Akshay K.</p><p className="text-xs text-gray-400">Admin</p></div></div></div>
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="bg-white border-b border-gray-200 px-6 py-3 flex items-center justify-between flex-shrink-0">
-          <div><h1 className="text-xl font-semibold text-gray-900">Pipeline</h1><p className="text-gray-500 text-sm">Track your leads and jobs</p></div>
+        <header className="header px-6 py-4 flex items-center justify-between flex-shrink-0">
+          <div><h1 className="text-2xl font-bold text-gray-900">Pipeline</h1><p className="text-gray-500 text-sm mt-0.5">Track your leads and jobs</p></div>
           <div className="flex items-center gap-3">
-            <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input type="text" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 pr-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm w-48 text-gray-900" /></div>
-            <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm text-gray-900">
+            <div className="relative"><Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" /><input type="text" placeholder="Search leads..." value={search} onChange={e => setSearch(e.target.value)} className="search-input pl-10 pr-4 py-2.5 text-sm w-56 text-gray-900" /></div>
+            <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} className="input-field px-4 py-2.5 text-sm text-gray-900 cursor-pointer">
               <option value="all">All Sources</option>
               <option value="website">Website</option>
               <option value="phone">Phone</option>
@@ -372,123 +409,122 @@ export default function PipelinePage() {
               <option value="google">Google</option>
               <option value="referral">Referral</option>
             </select>
-            <button className="p-1.5 hover:bg-gray-100 rounded-lg relative"><Bell className="w-4 h-4 text-gray-600" /><span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full"></span></button>
+            <button className="p-2.5 hover:bg-white/80 rounded-xl relative transition-all hover:shadow-md"><Bell className="w-5 h-5 text-gray-600" /><span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span></button>
           </div>
         </header>
 
-        <div className="bg-white border-b border-gray-200 px-6 py-2 flex items-center gap-6 flex-shrink-0">
-          <div className="flex items-center gap-2"><span className="text-xl font-bold text-gray-900">{totalLeads}</span><span className="text-gray-500 text-sm">Leads</span></div>
-          <div className="flex items-center gap-2"><span className="text-xl font-bold text-gray-900">{totalJobs}</span><span className="text-gray-500 text-sm">Jobs</span></div>
-          {saving && <div className="flex items-center gap-1 text-blue-500 text-sm"><Loader2 className="w-3 h-3 animate-spin" />Saving...</div>}
+        <div className="stats-bar px-6 py-3 flex items-center gap-8 flex-shrink-0">
+          <div className="stat-item flex items-center gap-3 pr-6"><span className="stat-value text-2xl font-bold">{totalLeads}</span><span className="text-gray-500 text-sm font-medium">Leads</span></div>
+          <div className="stat-item flex items-center gap-3 pr-6"><span className="stat-value text-2xl font-bold">{totalJobs}</span><span className="text-gray-500 text-sm font-medium">Jobs</span></div>
+          {saving && <div className="flex items-center gap-2 text-blue-500 text-sm font-medium"><Loader2 className="w-4 h-4 animate-spin" />Saving...</div>}
           <div className="flex-1"></div>
-          <button onClick={() => setShowBucketModal(true)} className="flex items-center gap-1.5 text-gray-600 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-100"><Pencil className="w-4 h-4" />Edit Buckets</button>
-          <button onClick={() => { setNewCard({ ...newCard, bucketId: buckets[0]?.id || '1' }); setShowAddModal(true); }} className="flex items-center gap-1.5 bg-blue-500 text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-600"><Plus className="w-4 h-4" />Add Lead</button>
+          <button onClick={() => setShowBucketModal(true)} className="btn-secondary flex items-center gap-2 text-gray-600 px-4 py-2.5 rounded-xl text-sm font-semibold"><Pencil className="w-4 h-4" />Edit Buckets</button>
+          <button onClick={() => { setNewCard({ ...newCard, bucketId: buckets[0]?.id || '1' }); setShowAddModal(true); }} className="btn-primary flex items-center gap-2 text-white px-5 py-2.5 rounded-xl text-sm font-semibold shadow-lg hover:shadow-xl"><Plus className="w-4 h-4" />Add Lead</button>
         </div>
 
         <div className="flex-1 overflow-x-auto p-4">
-          <div className="flex gap-4 h-full">
+          <div className="flex gap-5 h-full">
             {buckets.sort((a, b) => a.position - b.position).map(bucket => (
               <div 
                 key={bucket.id} 
-                className="w-72 flex-shrink-0 flex flex-col bg-gradient-to-b from-gray-100 to-gray-200 rounded-xl overflow-hidden"
+                className="bucket w-76 flex-shrink-0 flex flex-col"
+                style={{ '--bucket-color': bucket.color } as React.CSSProperties}
                 onDragOver={handleDragOver} 
                 onDrop={() => handleDrop(bucket.id)}
               >
                 {/* Bucket Header */}
                 <div 
-                  className="p-4 flex items-center gap-3 border-b"
-                  style={{ backgroundColor: bucket.color + '15', borderColor: bucket.color + '30' }}
+                  className="bucket-header flex items-center gap-3"
+                  style={{ backgroundColor: bucket.color + '12' }}
                 >
-                  <div className="w-3 h-3 rounded-full shadow-sm" style={{ backgroundColor: bucket.color }}></div>
-                  <h3 className="font-bold text-gray-800 text-sm">{bucket.title}</h3>
-                  <span 
-                    className="ml-auto px-2.5 py-1 rounded-full text-xs font-bold"
-                    style={{ backgroundColor: bucket.color + '20', color: bucket.color }}
-                  >
+                  <div className="w-3.5 h-3.5 rounded-full shadow-lg ring-2 ring-white/50" style={{ backgroundColor: bucket.color, boxShadow: `0 2px 8px ${bucket.color}40` }}></div>
+                  <h3 className="font-bold text-gray-800 text-base">{bucket.title}</h3>
+                  <span className="bucket-count ml-auto">
                     {getCardsForBucket(bucket.id).length}
                   </span>
                 </div>
                 {/* Cards Container */}
-                <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-gradient-to-b from-gray-100 to-gray-50">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {getCardsForBucket(bucket.id).map(card => (
                     <div 
                       key={card.id} 
                       draggable 
                       onDragStart={() => handleDragStart(card, bucket.id)} 
-                      className={`bg-white rounded-xl p-4 shadow-sm cursor-grab active:cursor-grabbing hover:shadow-lg hover:-translate-y-0.5 transition-all duration-200 border border-gray-100 group ${draggedCard?.card.id === card.id ? 'opacity-50' : ''}`}
+                      onClick={() => handleCardClick(card)}
+                      className={`pipeline-card p-4 group ${draggedCard?.card.id === card.id ? 'opacity-50' : ''}`}
                     >
                       {/* Header with badges */}
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${card.type === 'lead' ? 'bg-blue-50 text-blue-600 border border-blue-100' : 'bg-emerald-50 text-emerald-600 border border-emerald-100'}`}>
+                          <span className={`badge ${card.type === 'lead' ? 'badge-lead' : 'badge-job'}`}>
                             {card.type === 'lead' ? '🎯 Lead' : '🔧 Job'}
                           </span>
                           {card.priority && card.priority <= 2 && (
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-100">
+                            <span className="badge badge-hot">
                               🔥 Hot
                             </span>
                           )}
                           {card.priority && card.priority === 1 && (
-                            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-50 text-red-600 border border-red-100 animate-pulse">
+                            <span className="badge badge-urgent">
                               ⚡ Urgent
                             </span>
                           )}
                           {card.source && (
-                            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-gray-50 text-gray-500 border border-gray-100">
+                            <span className="badge badge-source">
                               {card.source === 'website' ? '🌐' : card.source === 'phone' ? '📞' : card.source === 'thumbtack' ? '🔧' : card.source === 'angi' ? '🏠' : card.source === 'google' ? '🔍' : '👥'} {card.source}
                             </span>
                           )}
                         </div>
-                        <button onClick={() => handleDeleteCard(card.id)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={(e) => { e.stopPropagation(); handleDeleteCard(card.id); }} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-1.5 rounded-lg hover:bg-red-50">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
                       
                       {/* Customer & Service */}
-                      <h4 className="font-bold text-gray-900 text-sm mb-1">{card.customerName}</h4>
-                      <p className="text-sm font-medium text-blue-600 mb-3">{card.service}</p>
+                      <h4 className="font-bold text-gray-900 text-base mb-1">{card.customerName}</h4>
+                      <p className="text-sm font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-4">{card.service}</p>
                       
                       {/* Details */}
-                      <div className="space-y-1.5 text-xs text-gray-500 bg-gray-50 rounded-lg p-2">
+                      <div className="details-section p-3 space-y-2">
                         {card.customerPhone && (
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-400">📞</span>
-                            <span className="font-medium">{card.customerPhone}</span>
+                            <span className="text-gray-400 text-sm">📞</span>
+                            <span className="font-medium text-gray-700 text-sm">{card.customerPhone}</span>
                           </div>
                         )}
                         {card.location && (
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-400">📍</span>
-                            <span>{card.location}</span>
+                            <span className="text-gray-400 text-sm">📍</span>
+                            <span className="text-gray-600 text-sm">{card.location}</span>
                           </div>
                         )}
                         <div className="flex items-center gap-2">
-                          <span className="text-gray-400">📅</span>
-                          <span>{card.date}</span>
+                          <span className="text-gray-400 text-sm">📅</span>
+                          <span className="text-gray-600 text-sm">{card.date}</span>
                         </div>
                         {card.plumber && (
                           <div className="flex items-center gap-2">
-                            <span className="text-gray-400">👷</span>
-                            <span>{card.plumber}</span>
+                            <span className="text-gray-400 text-sm">👷</span>
+                            <span className="text-gray-600 text-sm">{card.plumber}</span>
                           </div>
                         )}
                       </div>
                       
                       {/* Description preview */}
                       {card.description && (
-                        <p className="mt-2 text-xs text-gray-400 italic line-clamp-2">{card.description}</p>
+                        <p className="mt-3 text-xs text-gray-400 italic line-clamp-2 leading-relaxed">{card.description}</p>
                       )}
                       
                       {/* Price */}
                       {card.price && (
-                        <div className="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
-                          <span className="text-xs text-gray-400">Estimate</span>
-                          <span className="text-sm font-bold text-emerald-600">${card.price}</span>
+                        <div className="mt-4 pt-3 border-t border-gray-100/60 flex justify-between items-center">
+                          <span className="text-xs text-gray-400 font-medium">Estimate</span>
+                          <span className="text-base font-bold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent">${card.price}</span>
                         </div>
                       )}
                     </div>
                   ))}
-                  {getCardsForBucket(bucket.id).length === 0 && <div className="text-center py-4 text-gray-400 text-xs">Drop here</div>}
+                  {getCardsForBucket(bucket.id).length === 0 && <div className="empty-state">Drop leads here</div>}
                 </div>
               </div>
             ))}
@@ -498,26 +534,26 @@ export default function PipelinePage() {
 
       {/* Add Card Modal */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-5 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4"><h2 className="text-lg font-semibold text-gray-900">Add New Lead</h2><button onClick={() => setShowAddModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5 text-gray-500" /></button></div>
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-xs font-medium text-gray-700 mb-1">Customer Name *</label><input type="text" value={newCard.customerName} onChange={e => setNewCard({...newCard, customerName: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900" /></div>
-                <div><label className="block text-xs font-medium text-gray-700 mb-1">Phone *</label><input type="tel" value={newCard.customerPhone} onChange={e => setNewCard({...newCard, customerPhone: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900" /></div>
+        <div className="modal-overlay fixed inset-0 flex items-center justify-center z-50">
+          <div className="modal-content p-6 w-full max-w-lg mx-4">
+            <div className="flex items-center justify-between mb-6"><h2 className="text-xl font-bold text-gray-900">Add New Lead</h2><button onClick={() => setShowAddModal(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors"><X className="w-5 h-5 text-gray-500" /></button></div>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-sm font-semibold text-gray-700 mb-2">Customer Name *</label><input type="text" value={newCard.customerName} onChange={e => setNewCard({...newCard, customerName: e.target.value})} className="input-field w-full px-4 py-2.5 text-sm text-gray-900" placeholder="John Smith" /></div>
+                <div><label className="block text-sm font-semibold text-gray-700 mb-2">Phone *</label><input type="tel" value={newCard.customerPhone} onChange={e => setNewCard({...newCard, customerPhone: e.target.value})} className="input-field w-full px-4 py-2.5 text-sm text-gray-900" placeholder="(555) 123-4567" /></div>
               </div>
-              <div><label className="block text-xs font-medium text-gray-700 mb-1">Service Type *</label><input type="text" value={newCard.service} onChange={e => setNewCard({...newCard, service: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900" /></div>
-              <div><label className="block text-xs font-medium text-gray-700 mb-1">Location *</label><input type="text" value={newCard.location} onChange={e => setNewCard({...newCard, location: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900" /></div>
-              <div><label className="block text-xs font-medium text-gray-700 mb-1">Description</label><textarea value={newCard.description || ''} onChange={e => setNewCard({...newCard, description: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900" rows={2} placeholder="Additional details..." /></div>
-              <div className="grid grid-cols-4 gap-3">
-                <div><label className="block text-xs font-medium text-gray-700 mb-1">Price ($)</label><input type="number" value={newCard.price} onChange={e => setNewCard({...newCard, price: parseInt(e.target.value) || 0})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900" /></div>
-                <div><label className="block text-xs font-medium text-gray-700 mb-1">Priority</label><select value={newCard.priority} onChange={e => setNewCard({...newCard, priority: parseInt(e.target.value)})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900"><option value={1}>🔥 Urgent</option><option value={2}>🔥 Hot</option><option value={3}>Normal</option><option value={4}>Low</option><option value={5}>Very Low</option></select></div>
-                <div><label className="block text-xs font-medium text-gray-700 mb-1">Bucket</label><select value={newCard.bucketId} onChange={e => setNewCard({...newCard, bucketId: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900">{buckets.map(b => <option key={b.id} value={b.id}>{b.title}</option>)}</select></div>
-                <div><label className="block text-xs font-medium text-gray-700 mb-1">Source</label><select value={newCard.source} onChange={e => setNewCard({...newCard, source: e.target.value})} className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900"><option value="website">Website</option><option value="phone">Phone</option><option value="thumbtack">Thumbtack</option><option value="angi">Angi</option><option value="google">Google</option><option value="referral">Referral</option></select></div>
+              <div><label className="block text-sm font-semibold text-gray-700 mb-2">Service Type *</label><input type="text" value={newCard.service} onChange={e => setNewCard({...newCard, service: e.target.value})} className="input-field w-full px-4 py-2.5 text-sm text-gray-900" placeholder="Leak repair, Installation..." /></div>
+              <div><label className="block text-sm font-semibold text-gray-700 mb-2">Location *</label><input type="text" value={newCard.location} onChange={e => setNewCard({...newCard, location: e.target.value})} className="input-field w-full px-4 py-2.5 text-sm text-gray-900" placeholder="123 Main St, City" /></div>
+              <div><label className="block text-sm font-semibold text-gray-700 mb-2">Description</label><textarea value={newCard.description || ''} onChange={e => setNewCard({...newCard, description: e.target.value})} className="input-field w-full px-4 py-2.5 text-sm text-gray-900" rows={3} placeholder="Additional details about the job..." /></div>
+              <div className="grid grid-cols-4 gap-4">
+                <div><label className="block text-sm font-semibold text-gray-700 mb-2">Price ($)</label><input type="number" value={newCard.price} onChange={e => setNewCard({...newCard, price: parseInt(e.target.value) || 0})} className="input-field w-full px-4 py-2.5 text-sm text-gray-900" /></div>
+                <div><label className="block text-sm font-semibold text-gray-700 mb-2">Priority</label><select value={newCard.priority} onChange={e => setNewCard({...newCard, priority: parseInt(e.target.value)})} className="input-field w-full px-4 py-2.5 text-sm text-gray-900 cursor-pointer"><option value={1}>🔥 Urgent</option><option value={2}>🔥 Hot</option><option value={3}>Normal</option><option value={4}>Low</option><option value={5}>Very Low</option></select></div>
+                <div><label className="block text-sm font-semibold text-gray-700 mb-2">Bucket</label><select value={newCard.bucketId} onChange={e => setNewCard({...newCard, bucketId: e.target.value})} className="input-field w-full px-4 py-2.5 text-sm text-gray-900 cursor-pointer">{buckets.map(b => <option key={b.id} value={b.id}>{b.title}</option>)}</select></div>
+                <div><label className="block text-sm font-semibold text-gray-700 mb-2">Source</label><select value={newCard.source} onChange={e => setNewCard({...newCard, source: e.target.value})} className="input-field w-full px-4 py-2.5 text-sm text-gray-900 cursor-pointer"><option value="website">Website</option><option value="phone">Phone</option><option value="thumbtack">Thumbtack</option><option value="angi">Angi</option><option value="google">Google</option><option value="referral">Referral</option></select></div>
               </div>
-              <div className="flex justify-end gap-2 pt-3">
-                <button onClick={() => setShowAddModal(false)} className="px-3 py-1.5 border border-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
-                <button onClick={handleAddCard} disabled={saving} className="px-3 py-1.5 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 disabled:opacity-50 flex items-center gap-1">{saving && <Loader2 className="w-3 h-3 animate-spin" />}Add Lead</button>
+              <div className="flex justify-end gap-3 pt-4">
+                <button onClick={() => setShowAddModal(false)} className="btn-secondary px-5 py-2.5 text-gray-700 text-sm font-semibold">Cancel</button>
+                <button onClick={handleAddCard} disabled={saving} className="btn-primary px-5 py-2.5 text-white text-sm font-semibold flex items-center gap-2">{saving && <Loader2 className="w-4 h-4 animate-spin" />}Add Lead</button>
               </div>
             </div>
           </div>
@@ -526,29 +562,127 @@ export default function PipelinePage() {
 
       {/* Edit Buckets Modal */}
       {showBucketModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-5 w-full max-w-md mx-4">
-            <div className="flex items-center justify-between mb-4"><h2 className="text-lg font-semibold text-gray-900">Edit Buckets</h2><button onClick={() => setShowBucketModal(false)} className="p-1 hover:bg-gray-100 rounded"><X className="w-5 h-5 text-gray-500" /></button></div>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
+        <div className="modal-overlay fixed inset-0 flex items-center justify-center z-50">
+          <div className="modal-content p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-6"><h2 className="text-xl font-bold text-gray-900">Edit Buckets</h2><button onClick={() => setShowBucketModal(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors"><X className="w-5 h-5 text-gray-500" /></button></div>
+            <div className="space-y-2 max-h-72 overflow-y-auto">
               {buckets.sort((a, b) => a.position - b.position).map(bucket => (
-                <div key={bucket.id} className="flex items-center gap-2 p-2 bg-gray-50 rounded-lg">
-                  <div className="w-4 h-4 rounded-full" style={{ backgroundColor: bucket.color }}></div>
-                  <span className="flex-1 text-sm font-medium text-gray-700">{bucket.title}</span>
-                  <button onClick={() => openEditBucket(bucket)} className="p-1 text-gray-400 hover:text-gray-600"><Pencil className="w-4 h-4" /></button>
-                  <button onClick={() => handleDeleteBucket(bucket.id)} className="p-1 text-gray-400 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
+                <div key={bucket.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
+                  <div className="w-5 h-5 rounded-full shadow-md" style={{ backgroundColor: bucket.color, boxShadow: `0 2px 6px ${bucket.color}40` }}></div>
+                  <span className="flex-1 text-sm font-semibold text-gray-700">{bucket.title}</span>
+                  <button onClick={() => openEditBucket(bucket)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-white rounded-lg transition-all"><Pencil className="w-4 h-4" /></button>
+                  <button onClick={() => handleDeleteBucket(bucket.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 className="w-4 h-4" /></button>
                 </div>
               ))}
             </div>
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <p className="text-sm font-medium text-gray-700 mb-2">{editBucket ? 'Edit Bucket' : 'Add New Bucket'}</p>
-              <div className="flex items-center gap-2">
-                <input type="text" value={newBucket.title} onChange={e => setNewBucket({...newBucket, title: e.target.value})} placeholder="Bucket name" className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-900" />
-                <select value={newBucket.color} onChange={e => setNewBucket({...newBucket, color: e.target.value})} className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm">
+            <div className="mt-5 pt-5 border-t border-gray-200">
+              <p className="text-sm font-semibold text-gray-700 mb-3">{editBucket ? 'Edit Bucket' : 'Add New Bucket'}</p>
+              <div className="flex items-center gap-3">
+                <input type="text" value={newBucket.title} onChange={e => setNewBucket({...newBucket, title: e.target.value})} placeholder="Bucket name" className="input-field flex-1 px-4 py-2.5 text-sm text-gray-900" />
+                <select value={newBucket.color} onChange={e => setNewBucket({...newBucket, color: e.target.value})} className="input-field px-3 py-2.5 text-sm cursor-pointer">
                   {colorOptions.map(c => <option key={c.value} value={c.value}>{c.name}</option>)}
                 </select>
-                <button onClick={handleSaveBucket} className="p-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600"><Check className="w-4 h-4" /></button>
+                <button onClick={handleSaveBucket} className="btn-primary p-2.5 text-white rounded-xl"><Check className="w-5 h-5" /></button>
               </div>
-              {editBucket && <button onClick={() => { setEditBucket(null); setNewBucket({ title: '', color: '#3b82f6' }); }} className="mt-2 text-xs text-gray-500 hover:text-gray-700">Cancel edit</button>}
+              {editBucket && <button onClick={() => { setEditBucket(null); setNewBucket({ title: '', color: '#3b82f6' }); }} className="mt-3 text-sm text-gray-500 hover:text-gray-700 font-medium">Cancel edit</button>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Job Details Modal */}
+      {showJobDetailsModal && selectedCard && (
+        <div className="modal-overlay fixed inset-0 flex items-center justify-center z-50" onClick={() => setShowJobDetailsModal(false)}>
+          <div className="modal-content w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="p-6 border-b border-gray-100">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className={`badge ${selectedCard.type === 'lead' ? 'badge-lead' : 'badge-job'}`}>
+                    {selectedCard.type === 'lead' ? '🎯 Lead' : '🔧 Job'}
+                  </span>
+                  {selectedCard.priority && selectedCard.priority <= 2 && (
+                    <span className="badge badge-hot">🔥 Hot</span>
+                  )}
+                  {selectedCard.priority && selectedCard.priority === 1 && (
+                    <span className="badge badge-urgent">⚡ Urgent</span>
+                  )}
+                </div>
+                <button onClick={() => setShowJobDetailsModal(false)} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+            </div>
+            
+            {/* Content */}
+            <div className="p-6 space-y-5">
+              {/* Customer Info */}
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">{selectedCard.customerName}</h2>
+                <p className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mt-1">{selectedCard.service}</p>
+              </div>
+              
+              {/* Contact Details */}
+              <div className="details-section p-4 space-y-3">
+                {selectedCard.customerPhone && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-400 text-lg">📞</span>
+                    <span className="font-semibold text-gray-700">{selectedCard.customerPhone}</span>
+                  </div>
+                )}
+                {selectedCard.location && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-400 text-lg">📍</span>
+                    <span className="text-gray-700">{selectedCard.location}</span>
+                  </div>
+                )}
+                <div className="flex items-center gap-3">
+                  <span className="text-gray-400 text-lg">📅</span>
+                  <span className="text-gray-700">{selectedCard.date}</span>
+                </div>
+                {selectedCard.source && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-400 text-lg">🌐</span>
+                    <span className="text-gray-700 capitalize font-medium">{selectedCard.source}</span>
+                  </div>
+                )}
+                {selectedCard.plumber && (
+                  <div className="flex items-center gap-3">
+                    <span className="text-gray-400 text-lg">👷</span>
+                    <span className="text-gray-700">{selectedCard.plumber}</span>
+                  </div>
+                )}
+              </div>
+              
+              {/* Description */}
+              {selectedCard.description && (
+                <div>
+                  <h3 className="text-sm font-bold text-gray-700 mb-2 uppercase tracking-wide">Description</h3>
+                  <p className="text-gray-600 text-sm bg-gray-50 rounded-xl p-4 leading-relaxed">{selectedCard.description}</p>
+                </div>
+              )}
+              
+              {/* Price */}
+              <div className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-5 border border-blue-100">
+                <span className="text-gray-700 font-bold">Estimate</span>
+                <span className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">${selectedCard.price || 0}</span>
+              </div>
+              
+              {/* Actions */}
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={handleGenerateInvoice}
+                  className="btn-primary flex-1 flex items-center justify-center gap-2 text-white px-5 py-3 rounded-xl font-semibold"
+                >
+                  📄 Generate Invoice
+                </button>
+                <button 
+                  onClick={() => { /* TODO: Edit functionality */ }}
+                  className="btn-secondary px-5 py-3 text-gray-700 rounded-xl font-semibold"
+                >
+                  ✏️ Edit
+                </button>
+              </div>
             </div>
           </div>
         </div>
