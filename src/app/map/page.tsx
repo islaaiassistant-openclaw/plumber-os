@@ -3,18 +3,26 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { Search, Bell, Layers, Filter, Phone, MapPin, Calendar, User, X, Navigation } from 'lucide-react';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import dynamic from 'next/dynamic';
 
-// Fix for default marker icons in Leaflet
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-});
+// Dynamic imports for Leaflet (no SSR)
+const MapContainer = dynamic(
+  () => import('react-leaflet').then((mod) => mod.MapContainer),
+  { ssr: false }
+);
+const TileLayer = dynamic(
+  () => import('react-leaflet').then((mod) => mod.TileLayer),
+  { ssr: false }
+);
+const Marker = dynamic(
+  () => import('react-leaflet').then((mod) => mod.Marker),
+  { ssr: false }
+);
+const Popup = dynamic(
+  () => import('react-leaflet').then((mod) => mod.Popup),
+  { ssr: false }
+);
 
 interface MapLead {
   id: string;
@@ -25,41 +33,45 @@ interface MapLead {
   status: string;
   source: string;
   date: string;
-  // Geo coordinates (we'll generate these from location)
   lat?: number;
   lng?: number;
 }
 
 // Custom marker icons by status
-const createIcon = (color: string) => L.divIcon({
-  className: 'custom-marker',
-  html: `<div style="
-    background-color: ${color};
-    width: 32px;
-    height: 32px;
-    border-radius: 50% 50% 50% 0;
-    transform: rotate(-45deg);
-    border: 3px solid white;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  ">
-    <span style="transform: rotate(45deg); color: white; font-size: 14px;">📍</span>
-  </div>`,
-  iconSize: [32, 32],
-  iconAnchor: [16, 32],
-  popupAnchor: [0, -32],
-});
+const createIcon = (color: string) => {
+  if (typeof window === 'undefined') return undefined;
+  
+  const L = require('leaflet');
+  return L.divIcon({
+    className: 'custom-marker',
+    html: `<div style="
+      background-color: ${color};
+      width: 32px;
+      height: 32px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      border: 3px solid white;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    ">
+      <span style="transform: rotate(45deg); color: white; font-size: 14px;">📍</span>
+    </div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32],
+  });
+};
 
 const statusColors: Record<string, string> = {
-  new: '#3b82f6',       // blue
-  qualified: '#8b5cf6', // purple
-  quoted: '#eab308',    // yellow
-  booked: '#f97316',    // orange
-  in_progress: '#f59e0b', // amber
-  completed: '#22c55e', // green
-  lost: '#6b7280',      // gray
+  new: '#3b82f6',
+  qualified: '#8b5cf6',
+  quoted: '#eab308',
+  booked: '#f97316',
+  in_progress: '#f59e0b',
+  completed: '#22c55e',
+  lost: '#6b7280',
 };
 
 const statusLabels: Record<string, string> = {
@@ -83,7 +95,7 @@ const navItems = [
   { icon: '⚙️', label: 'Settings', href: '/settings' },
 ];
 
-// Sample data with NYC coordinates (in real app, would geocode addresses)
+// Sample data with NYC coordinates
 const sampleLeads: MapLead[] = [
   { id: '1', customerName: 'Robert S.', customerPhone: '(555) 123-4567', location: 'Brooklyn, NY', service: 'Drain Cleaning', status: 'new', source: 'website', date: 'Feb 23', lat: 40.6782, lng: -73.9442 },
   { id: '2', customerName: 'Jennifer L.', customerPhone: '(555) 456-7890', location: 'Bronx, NY', service: 'Pipe Installation', status: 'qualified', source: 'angi', date: 'Feb 20', lat: 40.8448, lng: -73.8648 },
@@ -99,11 +111,13 @@ const sampleLeads: MapLead[] = [
 
 // Component to center map on markers
 function MapBounds({ leads }: { leads: MapLead[] }) {
+  const Map = require('react-leaflet').useMap;
   const map = useMap();
   
   useEffect(() => {
     if (leads.length > 0) {
-      const bounds = L.latLngBounds(leads.map(l => [l.lat!, l.lng!]));
+      const L = require('leaflet');
+      const bounds = L.latLngBounds(leads.map((l: MapLead) => [l.lat!, l.lng!]));
       map.fitBounds(bounds, { padding: [50, 50] });
     }
   }, [leads, map]);
@@ -117,7 +131,22 @@ export default function MapPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedLead, setSelectedLead] = useState<MapLead | null>(null);
-  const [mapReady, setMapReady] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+    // Import leaflet CSS on client side
+    import('leaflet/dist/leaflet.css');
+    
+    // Fix for default marker icons
+    const L = require('leaflet');
+    delete (L.Icon.Default.prototype as any)._getIconUrl;
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+      iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+    });
+  }, []);
 
   // Filter leads
   const filteredLeads = leads.filter(lead => {
@@ -138,6 +167,17 @@ export default function MapPage() {
 
   // NYC center
   const center: [number, number] = [40.7128, -74.0060];
+
+  if (!isClient) {
+    return (
+      <div className="flex h-screen bg-gray-50 items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-500">Loading map...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -250,7 +290,7 @@ export default function MapPage() {
             className="z-0"
           >
             <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <MapBounds leads={filteredLeads} />
