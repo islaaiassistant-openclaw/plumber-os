@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Search, Bell, Plus, MoreHorizontal, MapPin, Phone, Calendar, X } from 'lucide-react';
+import { getStatusStyle, leadStatusLabels, sourceLabels } from '@/lib/statusColors';
 
 interface Lead {
   id: string;

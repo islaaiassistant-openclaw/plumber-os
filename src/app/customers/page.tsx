@@ -32,6 +32,7 @@ const navItems = [
   { icon: '👥', label: 'Customers', href: '/customers' },
   { icon: '📄', label: 'Invoices', href: '/invoices' },
   { icon: '⚙️', label: 'Settings', href: '/settings' },
+  { icon: '📅', label: 'Calendar', href: '/calendar' },
 ];
 
 export default function CustomersPage() {
