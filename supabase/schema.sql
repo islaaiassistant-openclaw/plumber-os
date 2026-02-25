@@ -165,4 +165,13 @@ create table jobs (
 );
 
 -- Enable RLS
-alter table jobs enable row level security;
+alter table buckets enable row level security;
+
+-- Seed default buckets
+insert into buckets (title, color, position) values 
+  ('New Leads', '#3b82f6', 1),
+  ('Qualified', '#8b5cf6', 2),
+  ('Quoted', '#eab308', 3),
+  ('Booked', '#f97316', 4),
+  ('In Progress', '#f59e0b', 5),
+  ('Completed', '#22c55e', 6);

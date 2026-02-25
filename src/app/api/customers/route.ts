@@ -1,51 +1,93 @@
-import { createClient } from '@supabase/supabase-js';
+import { sql } from '@/lib/db';
 import { NextResponse } from 'next/server';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 // GET - Fetch customers
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const search = searchParams.get('search');
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '10');
+  const search = searchParams.get('search');
 
-  let query = supabase
-    .from('customers')
-    .select('*', { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range((page - 1) * limit, page * limit - 1);
+  const offset = (page - 1) * limit;
 
-  if (search) {
-    query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`);
-  }
+  try {
+    let query = sql`
+      SELECT 
+        c.*,
+        COUNT(j.id) as total_jobs,
+        COALESCE(SUM(j.final_price), 0) as total_spent,
+        MAX(j.created_at) as last_job_date
+      FROM customers c
+      LEFT JOIN jobs j ON c.id = j.customer_id
+      WHERE 1=1
+    `;
+    
+    let countQuery = sql`SELECT COUNT(*) as total FROM customers c WHERE 1=1`;
+    
+    if (search) {
+      query = sql`${query} AND (c.name ILIKE ${'%' + search + '%'} OR c.email ILIKE ${'%' + search + '%'} OR c.phone ILIKE ${'%' + search + '%'} OR c.address ILIKE ${'%' + search + '%'})`;
+      countQuery = sql`${countQuery} AND (c.name ILIKE ${'%' + search + '%'} OR c.email ILIKE ${'%' + search + '%'} OR c.phone ILIKE ${'%' + search + '%'} OR c.address ILIKE ${'%' + search + '%'})`;
+    }
 
-  const { data, error, count } = await query;
+    query = sql`${query} GROUP BY c.id`;
 
-  if (error) {
+    const countResult = await countQuery;
+    const total = countResult[0]?.total || 0;
+
+    query = sql`
+      ${query} 
+      ORDER BY c.created_at DESC 
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    const customers = await query;
+
+    return NextResponse.json({ customers, total });
+  } catch (error: any) {
+    console.error('Error fetching customers:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json({ customers: data, total: count });
 }
 
 // POST - Create customer
 export async function POST(request: Request) {
   const body = await request.json();
   
-  const { data, error } = await supabase
-    .from('customers')
-    .insert([body])
-    .select()
-    .single();
+  try {
+    // Get or create default company
+    let companyId = body.company_id;
+    if (!companyId) {
+      const companies = await sql`SELECT id FROM companies LIMIT 1`;
+      if (companies.length > 0) {
+        companyId = companies[0].id;
+      } else {
+        const newCompany = await sql`
+          INSERT INTO companies (name, email)
+          VALUES ('Demo Company', 'demo@plumberos.com')
+          RETURNING id
+        `;
+        companyId = newCompany[0].id;
+      }
+    }
 
-  if (error) {
+    const result = await sql`
+      INSERT INTO customers (company_id, name, email, phone, address, notes)
+      VALUES (
+        ${companyId},
+        ${body.name},
+        ${body.email || null},
+        ${body.phone},
+        ${body.address || null},
+        ${body.notes || null}
+      )
+      RETURNING *
+    `;
+
+    return NextResponse.json({ customer: result[0] });
+  } catch (error: any) {
+    console.error('Error creating customer:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json({ customer: data });
 }
 
 // PUT - Update customer
@@ -53,18 +95,28 @@ export async function PUT(request: Request) {
   const body = await request.json();
   const { id, ...updates } = body;
 
-  const { data, error } = await supabase
-    .from('customers')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!id) {
+    return NextResponse.json({ error: 'ID required' }, { status: 400 });
   }
 
-  return NextResponse.json({ customer: data });
+  try {
+    const result = await sql`
+      UPDATE customers 
+      SET name = ${updates.name || null},
+          email = ${updates.email || null},
+          phone = ${updates.phone || null},
+          address = ${updates.address || null},
+          notes = ${updates.notes || null},
+          updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING *
+    `;
+
+    return NextResponse.json({ customer: result[0] });
+  } catch (error: any) {
+    console.error('Error updating customer:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
 
 // DELETE - Delete customer
@@ -76,14 +128,12 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'ID required' }, { status: 400 });
   }
 
-  const { error } = await supabase
-    .from('customers')
-    .delete()
-    .eq('id', id);
+  try {
+    await sql`DELETE FROM customers WHERE id = ${id}`;
 
-  if (error) {
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Error deleting customer:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json({ success: true });
 }

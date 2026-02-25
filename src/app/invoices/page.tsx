@@ -44,7 +44,7 @@ const statusLabels: Record<string, string> = {
 
 const navItems = [
   { icon: '📊', label: 'Dashboard', href: '/' },
-  { icon: '🎯', label: 'Leads', href: '/leads' },
+  { icon: '🎯', label: 'Pipeline', href: '/pipeline' },
   { icon: '💼', label: 'Jobs', href: '/jobs' },
   { icon: '👥', label: 'Customers', href: '/customers' },
   { icon: '📄', label: 'Invoices', href: '/invoices' },
@@ -130,7 +130,7 @@ export default function InvoicesPage() {
                 placeholder="Search invoices..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 bg-gray-100 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-sm w-64 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             

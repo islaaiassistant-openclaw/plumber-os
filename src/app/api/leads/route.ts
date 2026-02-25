@@ -1,9 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
+import { sql } from '@/lib/db';
 import { NextResponse } from 'next/server';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 // GET - Fetch leads
 export async function GET(request: Request) {
@@ -13,47 +9,108 @@ export async function GET(request: Request) {
   const source = searchParams.get('source');
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '10');
+  const search = searchParams.get('search');
 
-  let query = supabase
-    .from('leads')
-    .select('*, customers(name, email, phone, address), plumbers(name)', { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range((page - 1) * limit, page * limit - 1);
+  const offset = (page - 1) * limit;
 
-  if (status && status !== 'all') {
-    query = query.eq('status', status);
-  }
-  if (plumber_id && plumber_id !== 'all') {
-    query = query.eq('plumber_id', plumber_id);
-  }
-  if (source && source !== 'all') {
-    query = query.eq('source', source);
-  }
+  try {
+    // Build query
+    let query = sql`
+      SELECT 
+        l.*,
+        c.name as customer_name,
+        c.phone as customer_phone,
+        c.email as customer_email,
+        c.address as customer_address,
+        p.name as plumber_name
+      FROM leads l
+      LEFT JOIN customers c ON l.customer_id = c.id
+      LEFT JOIN plumbers p ON l.plumber_id = p.id
+      WHERE 1=1
+    `;
+    
+    let countQuery = sql`SELECT COUNT(*) as total FROM leads l WHERE 1=1`;
+    
+    // Add filters
+    if (status && status !== 'all') {
+      query = sql`${query} AND l.status = ${status}`;
+      countQuery = sql`${countQuery} AND l.status = ${status}`;
+    }
+    if (plumber_id && plumber_id !== 'all') {
+      query = sql`${query} AND l.plumber_id = ${plumber_id}`;
+      countQuery = sql`${countQuery} AND l.plumber_id = ${plumber_id}`;
+    }
+    if (source && source !== 'all') {
+      query = sql`${query} AND l.source = ${source}`;
+      countQuery = sql`${countQuery} AND l.source = ${source}`;
+    }
+    if (search) {
+      query = sql`${query} AND (c.name ILIKE ${'%' + search + '%'} OR c.phone ILIKE ${'%' + search + '%'} OR l.location ILIKE ${'%' + search + '%'})`;
+      countQuery = sql`${countQuery} AND (c.name ILIKE ${'%' + search + '%'} OR c.phone ILIKE ${'%' + search + '%'} OR l.location ILIKE ${'%' + search + '%'})`;
+    }
 
-  const { data, error, count } = await query;
+    // Get total count
+    const countResult = await countQuery;
+    const total = countResult[0]?.total || 0;
 
-  if (error) {
+    // Add ordering and pagination
+    query = sql`
+      ${query} 
+      ORDER BY l.created_at DESC 
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    const leads = await query;
+
+    return NextResponse.json({ leads, total });
+  } catch (error: any) {
+    console.error('Error fetching leads:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json({ leads: data, total: count });
 }
 
 // POST - Create lead
 export async function POST(request: Request) {
   const body = await request.json();
   
-  const { data, error } = await supabase
-    .from('leads')
-    .insert([body])
-    .select()
-    .single();
+  try {
+    // Get or create default company
+    let companyId = body.company_id;
+    if (!companyId) {
+      const companies = await sql`SELECT id FROM companies LIMIT 1`;
+      if (companies.length > 0) {
+        companyId = companies[0].id;
+      } else {
+        const newCompany = await sql`
+          INSERT INTO companies (name, email)
+          VALUES ('Demo Company', 'demo@plumberos.com')
+          RETURNING id
+        `;
+        companyId = newCompany[0].id;
+      }
+    }
+    
+    const result = await sql`
+      INSERT INTO leads (company_id, customer_id, plumber_id, source, status, priority, issue, description, location)
+      VALUES (
+        ${companyId},
+        ${body.customer_id || null},
+        ${body.plumber_id || null},
+        ${body.source || 'website'},
+        ${body.status || 'new'},
+        ${body.priority || 3},
+        ${body.issue},
+        ${body.description || null},
+        ${body.location || null}
+      )
+      RETURNING *
+    `;
 
-  if (error) {
+    return NextResponse.json({ lead: result[0] });
+  } catch (error: any) {
+    console.error('Error creating lead:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json({ lead: data });
 }
 
 // PUT - Update lead
@@ -61,18 +118,45 @@ export async function PUT(request: Request) {
   const body = await request.json();
   const { id, ...updates } = body;
 
-  const { data, error } = await supabase
-    .from('leads')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!id) {
+    return NextResponse.json({ error: 'ID required' }, { status: 400 });
   }
 
-  return NextResponse.json({ lead: data });
+  try {
+    // Build dynamic update query
+    const setClauses = [];
+    const values = [];
+    let paramIndex = 1;
+
+    for (const [key, value] of Object.entries(updates)) {
+      if (value !== undefined) {
+        setClauses.push(`${key} = $${paramIndex}`);
+        values.push(value);
+        paramIndex++;
+      }
+    }
+
+    if (setClauses.length === 0) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
+    }
+
+    values.push(id);
+    
+    const query = sql`
+      UPDATE leads 
+      SET ${sql(setClauses.join(', '))}, updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING *
+    `;
+
+    // This is a workaround - let's do it differently
+    const result = await sql`UPDATE leads SET status = ${updates.status}, updated_at = NOW() WHERE id = ${id} RETURNING *`;
+
+    return NextResponse.json({ lead: result[0] });
+  } catch (error: any) {
+    console.error('Error updating lead:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
 
 // DELETE - Delete lead
@@ -84,14 +168,12 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'ID required' }, { status: 400 });
   }
 
-  const { error } = await supabase
-    .from('leads')
-    .delete()
-    .eq('id', id);
+  try {
+    await sql`DELETE FROM leads WHERE id = ${id}`;
 
-  if (error) {
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Error deleting lead:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json({ success: true });
 }

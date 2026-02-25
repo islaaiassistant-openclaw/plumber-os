@@ -3,11 +3,30 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Search, Bell, Plus, TrendingUp, MoreHorizontal } from 'lucide-react';
+import { Search, Bell, Plus, TrendingUp, MoreHorizontal, Phone, MapPin, Clock } from 'lucide-react';
+
+const statusColors: Record<string, string> = {
+  new: 'bg-blue-100 text-blue-700',
+  working: 'bg-yellow-100 text-yellow-700',
+  completed: 'bg-green-100 text-green-700',
+};
+
+const statusLabels: Record<string, string> = {
+  new: 'New',
+  working: 'In Progress',
+  completed: 'Completed',
+};
+
+const mockLeads = [
+  { id: '1', name: 'Robert S.', service: 'Drain Cleaning', phone: '(555) 123-4567', location: 'Brooklyn, NY', status: 'new', date: 'Feb 23' },
+  { id: '2', name: 'Sarah M.', service: 'Water Heater', phone: '(555) 234-5678', location: 'Queens, NY', status: 'working', date: 'Feb 22' },
+  { id: '3', name: 'Mike T.', service: 'Leak Repair', phone: '(555) 345-6789', location: 'Manhattan, NY', status: 'completed', date: 'Feb 21' },
+  { id: '4', name: 'Jennifer L.', service: 'Pipe Installation', phone: '(555) 456-7890', location: 'Bronx, NY', status: 'new', date: 'Feb 20' },
+];
 
 const navItems = [
   { icon: '📊', label: 'Dashboard', href: '/' },
-  { icon: '🎯', label: 'Leads', href: '/leads' },
+  { icon: '🎯', label: 'Pipeline', href: '/pipeline' },
   { icon: '💼', label: 'Jobs', href: '/jobs' },
   { icon: '👥', label: 'Customers', href: '/customers' },
   { icon: '📄', label: 'Invoices', href: '/invoices' },
@@ -82,7 +101,7 @@ export default function Dashboard() {
               <input 
                 type="text" 
                 placeholder="Search..."
-                className="pl-10 pr-4 py-2 bg-gray-100 rounded-lg text-sm w-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-lg text-sm w-64 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             
@@ -115,24 +134,43 @@ export default function Dashboard() {
           </div>
 
           <div className="grid grid-cols-3 gap-6">
-            <div className="col-span-2 bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-lg font-semibold text-gray-900">Jobs This Month</h2>
-                <button className="text-gray-400 hover:text-gray-600">
-                  <MoreHorizontal className="w-5 h-5" />
-                </button>
+            {/* Recent Leads Table */}
+            <div className="col-span-2 bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+              <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-gray-900">Recent Leads</h2>
+                <Link href="/leads" className="text-blue-500 text-sm font-medium hover:text-blue-600">View All</Link>
               </div>
-              
-              <div className="flex items-end justify-between h-48 gap-1">
-                {[12,19,15,25,22,18,24,30,28,35,32,40,38,45,42,50,48,52,46,40,38,42,45,48,50,52,48,45,42,40,38].map((value, i) => (
-                  <div key={i} className="flex-1 flex flex-col items-center">
-                    <div className="w-full bg-blue-500 rounded-t-md hover:bg-blue-600" style={{height: (value/55)*100 + '%'}}></div>
-                  </div>
-                ))}
-              </div>
-              <div className="flex justify-between mt-2 text-xs text-gray-400"><span>1</span><span>8</span><span>15</span><span>22</span><span>28</span></div>
+              <table className="w-full">
+                <thead className="bg-gray-50 border-b border-gray-100">
+                  <tr>
+                    <th className="text-left px-6 py-3 text-sm font-medium text-gray-500">Name</th>
+                    <th className="text-left px-6 py-3 text-sm font-medium text-gray-500">Service</th>
+                    <th className="text-left px-6 py-3 text-sm font-medium text-gray-500">Phone</th>
+                    <th className="text-left px-6 py-3 text-sm font-medium text-gray-500">Location</th>
+                    <th className="text-left px-6 py-3 text-sm font-medium text-gray-500">Status</th>
+                    <th className="text-left px-6 py-3 text-sm font-medium text-gray-500">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {mockLeads.map((lead) => (
+                    <tr key={lead.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 font-medium text-gray-900">{lead.name}</td>
+                      <td className="px-6 py-4 text-gray-600">{lead.service}</td>
+                      <td className="px-6 py-4 text-gray-500">{lead.phone}</td>
+                      <td className="px-6 py-4 text-gray-500">{lead.location}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[lead.status]}`}>
+                          {statusLabels[lead.status]}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-500 text-sm">{lead.date}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
 
+            {/* Quick Actions */}
             <div className="bg-white rounded-xl p-6 border border-gray-100 shadow-sm">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
               <div className="space-y-3">

@@ -1,55 +1,115 @@
-import { createClient } from '@supabase/supabase-js';
+import { sql } from '@/lib/db';
 import { NextResponse } from 'next/server';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabase = createClient(supabaseUrl, supabaseKey);
 
 // GET - Fetch jobs
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const status = searchParams.get('status');
   const plumber_id = searchParams.get('plumber_id');
+  const customer_id = searchParams.get('customer_id');
   const page = parseInt(searchParams.get('page') || '1');
   const limit = parseInt(searchParams.get('limit') || '10');
+  const search = searchParams.get('search');
 
-  let query = supabase
-    .from('jobs')
-    .select('*, customers(name, email, phone, address), plumbers(name)', { count: 'exact' })
-    .order('created_at', { ascending: false })
-    .range((page - 1) * limit, page * limit - 1);
+  const offset = (page - 1) * limit;
 
-  if (status && status !== 'all') {
-    query = query.eq('status', status);
-  }
-  if (plumber_id && plumber_id !== 'all') {
-    query = query.eq('plumber_id', plumber_id);
-  }
+  try {
+    let query = sql`
+      SELECT 
+        j.*,
+        c.name as customer_name,
+        c.phone as customer_phone,
+        c.address as customer_address,
+        p.name as plumber_name,
+        l.issue as lead_issue
+      FROM jobs j
+      LEFT JOIN customers c ON j.customer_id = c.id
+      LEFT JOIN plumbers p ON j.plumber_id = p.id
+      LEFT JOIN leads l ON j.lead_id = l.id
+      WHERE 1=1
+    `;
+    
+    let countQuery = sql`SELECT COUNT(*) as total FROM jobs j WHERE 1=1`;
+    
+    if (status && status !== 'all') {
+      query = sql`${query} AND j.status = ${status}`;
+      countQuery = sql`${countQuery} AND j.status = ${status}`;
+    }
+    if (plumber_id && plumber_id !== 'all') {
+      query = sql`${query} AND j.plumber_id = ${plumber_id}`;
+      countQuery = sql`${countQuery} AND j.plumber_id = ${plumber_id}`;
+    }
+    if (customer_id && customer_id !== 'all') {
+      query = sql`${query} AND j.customer_id = ${customer_id}`;
+      countQuery = sql`${countQuery} AND j.customer_id = ${customer_id}`;
+    }
+    if (search) {
+      query = sql`${query} AND (c.name ILIKE ${'%' + search + '%'} OR j.type ILIKE ${'%' + search + '%'} OR j.description ILIKE ${'%' + search + '%'})`;
+      countQuery = sql`${countQuery} AND (c.name ILIKE ${'%' + search + '%'} OR j.type ILIKE ${'%' + search + '%'} OR j.description ILIKE ${'%' + search + '%'})`;
+    }
 
-  const { data, error, count } = await query;
+    const countResult = await countQuery;
+    const total = countResult[0]?.total || 0;
 
-  if (error) {
+    query = sql`
+      ${query} 
+      ORDER BY j.created_at DESC 
+      LIMIT ${limit} OFFSET ${offset}
+    `;
+
+    const jobs = await query;
+
+    return NextResponse.json({ jobs, total });
+  } catch (error: any) {
+    console.error('Error fetching jobs:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json({ jobs: data, total: count });
 }
 
 // POST - Create job
 export async function POST(request: Request) {
   const body = await request.json();
   
-  const { data, error } = await supabase
-    .from('jobs')
-    .insert([body])
-    .select()
-    .single();
+  try {
+    // Get or create default company
+    let companyId = body.company_id;
+    if (!companyId) {
+      const companies = await sql`SELECT id FROM companies LIMIT 1`;
+      if (companies.length > 0) {
+        companyId = companies[0].id;
+      } else {
+        const newCompany = await sql`
+          INSERT INTO companies (name, email)
+          VALUES ('Demo Company', 'demo@plumberos.com')
+          RETURNING id
+        `;
+        companyId = newCompany[0].id;
+      }
+    }
 
-  if (error) {
+    const result = await sql`
+      INSERT INTO jobs (company_id, lead_id, customer_id, plumber_id, status, type, description, scheduled_date, scheduled_time, estimated_price, notes)
+      VALUES (
+        ${companyId},
+        ${body.lead_id || null},
+        ${body.customer_id || null},
+        ${body.plumber_id || null},
+        ${body.status || 'scheduled'},
+        ${body.type},
+        ${body.description || null},
+        ${body.scheduled_date || null},
+        ${body.scheduled_time || null},
+        ${body.estimated_price || null},
+        ${body.notes || null}
+      )
+      RETURNING *
+    `;
+
+    return NextResponse.json({ job: result[0] });
+  } catch (error: any) {
+    console.error('Error creating job:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json({ job: data });
 }
 
 // PUT - Update job
@@ -57,18 +117,33 @@ export async function PUT(request: Request) {
   const body = await request.json();
   const { id, ...updates } = body;
 
-  const { data, error } = await supabase
-    .from('jobs')
-    .update(updates)
-    .eq('id', id)
-    .select()
-    .single();
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (!id) {
+    return NextResponse.json({ error: 'ID required' }, { status: 400 });
   }
 
-  return NextResponse.json({ job: data });
+  try {
+    const result = await sql`
+      UPDATE jobs 
+      SET status = ${updates.status}, 
+          plumber_id = ${updates.plumber_id || null},
+          description = ${updates.description || null},
+          scheduled_date = ${updates.scheduled_date || null},
+          scheduled_time = ${updates.scheduled_time || null},
+          estimated_price = ${updates.estimated_price || null},
+          final_price = ${updates.final_price || null},
+          notes = ${updates.notes || null},
+          started_at = ${updates.status === 'in_progress' ? new Date() : null},
+          completed_at = ${updates.status === 'completed' ? new Date() : null},
+          updated_at = NOW()
+      WHERE id = ${id}
+      RETURNING *
+    `;
+
+    return NextResponse.json({ job: result[0] });
+  } catch (error: any) {
+    console.error('Error updating job:', error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
 }
 
 // DELETE - Delete job
@@ -80,14 +155,12 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: 'ID required' }, { status: 400 });
   }
 
-  const { error } = await supabase
-    .from('jobs')
-    .delete()
-    .eq('id', id);
+  try {
+    await sql`DELETE FROM jobs WHERE id = ${id}`;
 
-  if (error) {
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Error deleting job:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
-  return NextResponse.json({ success: true });
 }
